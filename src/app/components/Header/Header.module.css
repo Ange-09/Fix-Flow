@@ -1,58 +1,71 @@
 .header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  margin: 0 auto;
-  padding: 0 10vw;
-
-  height: clamp(40px, 10vh, 55px);
-  width: 100%;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
-
-  /* Frosted glass base */
-  background: rgba(131, 130, 130, 0.15);
-  backdrop-filter: blur(12px) saturate(80%);
-  -webkit-backdrop-filter: blur(12px) saturate(80%);
-
-  /* Subtle glass edges */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-
-  /* Depth */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-
-  z-index: 1000;
+  padding: 0 2.5rem;
+  height: 64px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e8ecf0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
 }
 
-.name {
-  text-align: center;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brandName {
+  font-family: "Sora", "Segoe UI", sans-serif;
   font-size: 1.25rem;
-  font-weight: 500;
-}
-
-.rs {
   font-weight: 700;
+  color: #0d1117;
+  letter-spacing: -0.02em;
 }
 
-/* Navigation styling */
+.nav {
+  display: flex;
+  align-items: center;
+}
+
 .navList {
   display: flex;
-  gap: 1.5rem;
+  align-items: center;
+  gap: 0.25rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.navList a {
-  text-decoration: none;
-  color: #e5e5e5;
+.navLink {
+  display: block;
+  padding: 0.4rem 0.875rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.875rem;
   font-weight: 500;
-  transition: color 0.2s ease;
-  font-size: 1rem;
+  color: #4a5568;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.navList a:hover {
-  color: #094a94; /* Example hover color */
+.navLink:hover {
+  background-color: #f0f5ff;
+  color: #0A6EFF;
+}
+
+.navLink.active {
+  background-color: #e8f0ff;
+  color: #0A6EFF;
 }
