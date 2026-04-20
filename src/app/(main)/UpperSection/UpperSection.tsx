@@ -73,9 +73,21 @@ export default function UpperSection() {
                 stroke="#94a3b8"
                 strokeWidth="2"
               />
-              <circle cx="32" cy="36" r="8" stroke="#94a3b8" strokeWidth="2" fill="none" />
+              <circle
+                cx="32"
+                cy="36"
+                r="8"
+                stroke="#94a3b8"
+                strokeWidth="2"
+                fill="none"
+              />
               <circle cx="32" cy="36" r="3" fill="#94a3b8" />
-              <path d="M16 52h32" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+              <path
+                d="M16 52h32"
+                stroke="#94a3b8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
             <span className={styles.imagePlaceholderText}>Machine Image</span>
           </div>
