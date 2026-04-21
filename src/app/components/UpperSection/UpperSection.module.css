@@ -5,7 +5,7 @@
   padding: 2rem 10%;
   background-color: #f0f4f1;
   border-bottom: 1px solid #c9d9cc;
-  height: 50vh;
+  min-height: 50vh;
   align-items: stretch;
 }
 
