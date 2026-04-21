@@ -2,10 +2,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
-  padding: 2rem 2.5rem;
+  padding: 2rem 10%;
   background-color: #f0f4f1;
   border-bottom: 1px solid #c9d9cc;
-  min-height: 280px;
+  height: 50vh;
   align-items: stretch;
 }
 
@@ -80,7 +80,9 @@
   border: 1.5px solid #c9d9cc;
   border-radius: 8px;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   outline: none;
 }
 
@@ -144,6 +146,7 @@
   color: #4a6b53;
   margin: 0;
   max-width: 56ch;
+  text-align: justify;
 }
 
 /* ── Responsive ── */

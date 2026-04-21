@@ -7,7 +7,7 @@ import styles from "./UpperSection.module.css";
 export default function UpperSection() {
   const { selectedMachineId, setSelectedMachineId } = useAppContext();
   const machine = getMachineById(selectedMachineId)!;
-    if (!machine) return null;
+  if (!machine) return null;
 
   return (
     <section className={styles.upperSection}>
@@ -17,15 +17,50 @@ export default function UpperSection() {
           {machine.image ? (
             /* Replace with Next.js <Image> when real images are available:
                <Image src={machine.image} alt={machine.name} fill style={{ objectFit: "cover" }} /> */
-            <img src={machine.image} alt={machine.name} className={styles.machineImg} />
+            <img
+              src={machine.image}
+              alt={machine.name}
+              className={styles.machineImg}
+            />
           ) : (
             <div className={styles.imagePlaceholder}>
-              <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="8" y="20" width="48" height="32" rx="4" stroke="#94a3b8" strokeWidth="2" fill="none" />
-                <path d="M20 20V14a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v6" stroke="#94a3b8" strokeWidth="2" />
-                <circle cx="32" cy="36" r="8" stroke="#94a3b8" strokeWidth="2" fill="none" />
+              <svg
+                width="64"
+                height="64"
+                viewBox="0 0 64 64"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  x="8"
+                  y="20"
+                  width="48"
+                  height="32"
+                  rx="4"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <path
+                  d="M20 20V14a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v6"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx="32"
+                  cy="36"
+                  r="8"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  fill="none"
+                />
                 <circle cx="32" cy="36" r="3" fill="#94a3b8" />
-                <path d="M16 52h32" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+                <path
+                  d="M16 52h32"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
               <span className={styles.imagePlaceholderText}>Machine Image</span>
             </div>
