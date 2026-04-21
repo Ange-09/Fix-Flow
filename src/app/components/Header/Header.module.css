@@ -5,11 +5,11 @@
   padding: 0 2.5rem;
   height: 64px;
   background-color: #ffffff;
-  border-bottom: 1px solid #e8ecf0;
+  border-bottom: 1px solid #c9d9cc;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 8px rgba(13, 31, 17, 0.06);
 }
 
 .brand {
@@ -30,7 +30,7 @@
   font-family: "Sora", "Segoe UI", sans-serif;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #0d1117;
+  color: #0d1f11;
   letter-spacing: -0.02em;
 }
 
@@ -54,18 +54,18 @@
   font-family: "Sora", "Segoe UI", sans-serif;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #4a5568;
+  color: #4a6b53;
   text-decoration: none;
   border-radius: 6px;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .navLink:hover {
-  background-color: #f0f5ff;
-  color: #0A6EFF;
+  background-color: #edf5ee;
+  color: #1a5c2a;
 }
 
 .navLink.active {
-  background-color: #e8f0ff;
-  color: #0A6EFF;
+  background-color: #d6eedd;
+  color: #1a5c2a;
 }
