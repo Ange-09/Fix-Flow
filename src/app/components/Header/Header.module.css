@@ -8,10 +8,11 @@
   border-bottom: 1px solid #c9d9cc;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 200;
   box-shadow: 0 1px 8px rgba(13, 31, 17, 0.06);
 }
 
+/* ── Brand ── */
 .brand {
   display: flex;
   align-items: center;
@@ -34,6 +35,7 @@
   letter-spacing: -0.02em;
 }
 
+/* ── Desktop Nav ── */
 .nav {
   display: flex;
   align-items: center;
@@ -68,4 +70,140 @@
 .navLink.active {
   background-color: #d6eedd;
   color: #1a5c2a;
+  font-weight: 600;
+}
+
+/* ── Hamburger (hidden on desktop) ── */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.hamburger:hover {
+  background-color: #edf5ee;
+  border-color: #1a5c2a;
+}
+
+.bar {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background-color: #0d1f11;
+  border-radius: 999px;
+  transition: transform 0.25s ease, opacity 0.25s ease, width 0.25s ease;
+  transform-origin: center;
+}
+
+/* Animate bars → X when open */
+.hamburgerOpen .bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.hamburgerOpen .bar:nth-child(2) {
+  opacity: 0;
+  width: 0;
+}
+.hamburgerOpen .bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ── Overlay ── */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 64px 0 0 0;
+  background: rgba(13, 31, 17, 0.35);
+  z-index: 150;
+  animation: fadeIn 0.2s ease;
+}
+
+/* ── Mobile Drawer ── */
+.mobileNav {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #c9d9cc;
+  box-shadow: 0 8px 24px rgba(13, 31, 17, 0.10);
+  z-index: 175;
+  transform: translateY(-8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.mobileNavOpen {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+.mobileNavList {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 1rem 0.75rem;
+}
+
+.mobileNavLink {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #4a6b53;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mobileNavLink:hover {
+  background-color: #edf5ee;
+  color: #1a5c2a;
+}
+
+.mobileNavLink.active {
+  background-color: #d6eedd;
+  color: #1a5c2a;
+  font-weight: 600;
+}
+
+/* ── Responsive breakpoint ── */
+@media (max-width: 768px) {
+  .header {
+    padding: 0 1.25rem;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  .overlay {
+    display: block;
+  }
+
+  .mobileNav {
+    display: block;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
