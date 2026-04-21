@@ -3,78 +3,259 @@
 import { useState } from "react";
 import styles from "./page.module.css";
 
-
-
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const FACTORS = ["Cost", "Long Term Reliability", "Uptime", "Utilization of Technology"] as const;
+const FACTORS = [
+  "Cost",
+  "Long Term Reliability",
+  "Uptime",
+  "Utilization of Technology",
+] as const;
 type Factor = (typeof FACTORS)[number];
+
+const STRATEGIES = [
+  { id: "predictive", label: "Predictive Maintenance", color: "#185FA5", icon: "📡" },
+  { id: "preventive", label: "Preventive Maintenance", color: "#27500A", icon: "🔧" },
+  { id: "reactive",   label: "Reactive Maintenance",   color: "#854F0B", icon: "⚠️" },
+] as const;
+type StrategyId = (typeof STRATEGIES)[number]["id"];
 
 const SLIDER_STEPS = [-9, -7, -5, -3, 1, 3, 5, 7, 9];
 
 // All unique pairs (i < j)
-const PAIRS: [Factor, Factor][] = [];
-for (let i = 0; i < FACTORS.length; i++) {
-  for (let j = i + 1; j < FACTORS.length; j++) {
-    PAIRS.push([FACTORS[i], FACTORS[j]]);
-  }
+function makePairs<T extends string>(items: readonly T[]): [T, T][] {
+  const pairs: [T, T][] = [];
+  for (let i = 0; i < items.length; i++)
+    for (let j = i + 1; j < items.length; j++)
+      pairs.push([items[i], items[j]]);
+  return pairs;
 }
 
-// Maintenance strategy types
-const STRATEGIES = [
-  { id: "predictive", label: "Predictive Maintenance", color: "#0A6EFF", icon: "📡" },
-  { id: "preventive", label: "Preventive Maintenance", color: "#10b981", icon: "🔧" },
-  { id: "reactive",   label: "Reactive Maintenance",   color: "#f59e0b", icon: "⚠️" },
-] as const;
+const FACTOR_PAIRS  = makePairs(FACTORS);
+const STRAT_LABELS  = STRATEGIES.map((s) => s.label) as [string, string, string];
+const STRAT_PAIRS   = makePairs(STRAT_LABELS);
 
-function initComparisons(): Record<string, number> {
+// ── State initializers ───────────────────────────────────────────────────────
+
+function initCritComparisons(): Record<string, number> {
   const map: Record<string, number> = {};
-  PAIRS.forEach(([a, b]) => { map[`${a}|${b}`] = 1; });
+  FACTOR_PAIRS.forEach(([a, b]) => { map[`${a}|${b}`] = 1; });
   return map;
+}
+
+function initAltComparisons(): Record<Factor, Record<string, number>> {
+  const result = {} as Record<Factor, Record<string, number>>;
+  FACTORS.forEach((factor) => {
+    result[factor] = {};
+    STRAT_PAIRS.forEach(([a, b]) => { result[factor][`${a}|${b}`] = 1; });
+  });
+  return result;
+}
+
+// ── AHP Math ─────────────────────────────────────────────────────────────────
+
+/**
+ * Converts a pairwise comparison map (key = "A|B", value = Saaty integer)
+ * into a full n×n ratio matrix.
+ *
+ * Sign convention (matches the slider UX):
+ *   value === 1           → equal importance    → ratio = 1
+ *   value < 0 (e.g. -5)  → A dominates B       → ratio = |value|
+ *   value > 0 (e.g.  5)  → B dominates A       → ratio = 1 / value
+ */
+function buildMatrix(labels: readonly string[], map: Record<string, number>): number[][] {
+  const n = labels.length;
+  const M: number[][] = Array.from({ length: n }, () => Array(n).fill(1));
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const v = map[`${labels[i]}|${labels[j]}`] ?? 1;
+      let ratio: number;
+      if (v === 1)       ratio = 1;
+      else if (v < 0)    ratio = Math.abs(v);
+      else               ratio = 1 / v;
+      M[i][j] = ratio;
+      M[j][i] = 1 / ratio;
+    }
+  }
+  return M;
+}
+
+/**
+ * Derives priority weights from a pairwise matrix using the
+ * normalized column sum (eigenvector approximation).
+ */
+function deriveWeights(M: number[][]): number[] {
+  const n = M.length;
+  const colSums = Array(n).fill(0);
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      colSums[j] += M[i][j];
+
+  const normalized = M.map((row) => row.map((v, j) => v / colSums[j]));
+  return normalized.map((row) => row.reduce((sum, v) => sum + v, 0) / n);
+}
+
+/**
+ * Full two-level AHP:
+ *   1. Derive criteria weights from factor pairwise comparisons.
+ *   2. For each factor, derive local strategy weights from alternative comparisons.
+ *   3. Global score = sum over factors of (criteria_weight × local_strategy_weight).
+ */
+function computeAHP(
+  critComparisons: Record<string, number>,
+  altComparisons:  Record<Factor, Record<string, number>>
+): Record<StrategyId, number> {
+  const critWeights = deriveWeights(buildMatrix(FACTORS, critComparisons));
+
+  const globalScores = STRATEGIES.map(() => 0);
+
+  FACTORS.forEach((factor, fi) => {
+    const localWeights = deriveWeights(
+      buildMatrix(STRAT_LABELS, altComparisons[factor])
+    );
+    localWeights.forEach((w, si) => {
+      globalScores[si] += critWeights[fi] * w;
+    });
+  });
+
+  // Return as percentages keyed by strategy id
+  const result = {} as Record<StrategyId, number>;
+  STRATEGIES.forEach((s, i) => {
+    result[s.id] = globalScores[i] * 100;
+  });
+  return result;
 }
 
 // ── Label helpers ─────────────────────────────────────────────────────────────
 
 function sliderLabel(value: number): string {
-  if (value === 1) return "Equal";
   const abs = Math.abs(value);
-  const labels: Record<number, string> = { 3: "Moderate", 5: "Strong", 7: "Very Strong", 9: "Extreme" };
+  const labels: Record<number, string> = {
+    1: "Equal Importance",
+    3: "Moderate Importance",
+    5: "Strong Importance",
+    7: "Very Strong Importance",
+    9: "Extreme Importance",
+  };
   return labels[abs] ?? String(abs);
 }
 
-function importanceDescription(factorA: Factor, factorB: Factor, value: number): string {
-  if (value === 1) return `${factorA} and ${factorB} are equally important`;
-  if (value > 0) return `${factorA} is ${sliderLabel(value).toLowerCase()} more important than ${factorB}`;
-  return `${factorB} is ${sliderLabel(value).toLowerCase()} more important than ${factorA}`;
+function importanceDescription(a: string, b: string, value: number): string {
+  if (value === 1)  return `${a} and ${b} are equally important`;
+  if (value < 0)    return `${a} has ${sliderLabel(value).toLowerCase()} over ${b}`;
+  return `${b} has ${sliderLabel(value).toLowerCase()} over ${a}`;
 }
 
 function stepIndex(value: number): number {
   return SLIDER_STEPS.indexOf(value);
 }
 
-/**
- * TODO: Replace this stub with your real AHP computation.
- * Receives the pairwise comparison map (key = "FactorA|FactorB", value = saaty scale)
- * and returns scores 0–100 for each strategy id.
- */
-function computeAHPScores(_comparisons: Record<string, number>): Record<string, number> {
-  return { predictive: 72, preventive: 58, reactive: 31 };
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+interface ComparisonCardProps {
+  labelA: string;
+  labelB: string;
+  value: number;
+  onChange: (newValue: number) => void;
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
+function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps) {
+  const idx    = stepIndex(value);
+  const isLeft = value < 0;
+  const isEq   = value === 1;
+
+  return (
+    <div className={styles.comparisonCard}>
+      <div className={styles.factorRow}>
+        <span className={`${styles.factorLabel} ${!isEq && isLeft  ? styles.factorActive : ""}`}>
+          {labelA}
+        </span>
+        <span className={styles.vsTag}>vs</span>
+        <span className={`${styles.factorLabel} ${styles.factorRight} ${!isEq && !isLeft ? styles.factorActive : ""}`}>
+          {labelB}
+        </span>
+      </div>
+
+      <div className={styles.sliderWrapper}>
+        <div className={styles.sliderTrackLabels}>
+          {SLIDER_STEPS.map((step, i) => (
+            <div
+              key={i}
+              className={`${styles.trackMark} ${i === idx ? styles.trackMarkActive : ""}`}
+              style={{
+                backgroundColor:
+                  i === idx
+                    ? step < 0
+                      ? "#534AB7"
+                      : step === 1
+                      ? "#64748b"
+                      : "#185FA5"
+                    : undefined,
+              }}
+            />
+          ))}
+        </div>
+
+        <input
+          type="range"
+          min={0}
+          max={SLIDER_STEPS.length - 1}
+          step={1}
+          value={idx}
+          onChange={(e) => onChange(SLIDER_STEPS[Number(e.target.value)])}
+          className={styles.slider}
+        />
+
+        <div className={styles.sliderStepLabels}>
+          {SLIDER_STEPS.map((step, i) => (
+            <span
+              key={i}
+              className={`${styles.stepLabel} ${i === idx ? styles.stepLabelActive : ""}`}
+            >
+              {Math.abs(step) === 1 ? "=" : Math.abs(step)}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <p className={styles.comparisonDesc}>
+        {importanceDescription(labelA, labelB, value)}
+      </p>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function CriticalityPage() {
-  const [comparisons, setComparisons] = useState(initComparisons);
+  const [critComparisons, setCritComparisons] = useState(initCritComparisons);
+  const [altComparisons,  setAltComparisons]  = useState(initAltComparisons);
   const [submitted, setSubmitted] = useState(false);
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [scores,    setScores]    = useState<Record<StrategyId, number>>({} as Record<StrategyId, number>);
+  const [critWeights, setCritWeights] = useState<number[]>([]);
 
-  function handleSliderChange(pairKey: string, rawIndex: number) {
-    setComparisons((prev) => ({ ...prev, [pairKey]: SLIDER_STEPS[rawIndex] }));
+  // ── Handlers ──
+
+  function handleCritChange(key: string, value: number) {
+    setCritComparisons((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleAltChange(factor: Factor, key: string, value: number) {
+    setAltComparisons((prev) => ({
+      ...prev,
+      [factor]: { ...prev[factor], [key]: value },
+    }));
   }
 
   function handleSubmit() {
-    const result = computeAHPScores(comparisons);
+    const result = computeAHP(critComparisons, altComparisons);
     setScores(result);
+
+    // Also expose criteria weights for the summary table
+    const cw = deriveWeights(buildMatrix(FACTORS, critComparisons));
+    setCritWeights(cw);
+
     setSubmitted(true);
     setTimeout(() => {
       document.getElementById("results-section")?.scrollIntoView({ behavior: "smooth" });
@@ -82,9 +263,11 @@ export default function CriticalityPage() {
   }
 
   function handleReset() {
-    setComparisons(initComparisons());
+    setCritComparisons(initCritComparisons());
+    setAltComparisons(initAltComparisons());
     setSubmitted(false);
-    setScores({});
+    setScores({} as Record<StrategyId, number>);
+    setCritWeights([]);
   }
 
   const rankedStrategies = submitted
@@ -92,6 +275,8 @@ export default function CriticalityPage() {
     : [];
 
   const topStrategy = rankedStrategies[0];
+
+  // ── Render ──
 
   return (
     <div className={styles.page}>
@@ -103,13 +288,15 @@ export default function CriticalityPage() {
             <span className={styles.pageTag}>AHP Assessment</span>
             <h1 className={styles.pageTitle}>Machine Criticality Assessment</h1>
             <p className={styles.pageSubtitle}>
-              Compare each factor pair to determine which is more important for this machine.
-              Move the slider toward a factor to indicate its relative importance.
+              Complete two steps: first compare the four criteria against each other,
+              then for each criterion, compare the three maintenance strategies.
             </p>
           </div>
           <div className={styles.progressInfo}>
-            <span className={styles.progressLabel}>Comparisons</span>
-            <span className={styles.progressCount}>{PAIRS.length}</span>
+            <span className={styles.progressLabel}>Total comparisons</span>
+            <span className={styles.progressCount}>
+              {FACTOR_PAIRS.length + FACTORS.length * STRAT_PAIRS.length}
+            </span>
           </div>
         </div>
 
@@ -126,79 +313,90 @@ export default function CriticalityPage() {
           </div>
         </div>
 
-        {/* ── Pairwise Comparison Cards ── */}
-        <div className={styles.comparisonsGrid}>
-          {PAIRS.map(([factorA, factorB]) => {
-            const key = `${factorA}|${factorB}`;
-            const value = comparisons[key];
-            const idx = stepIndex(value);
-            const isLeft = value > 0;
-            const isEqual = value === 1;
+        {/* ══════════════════════════════════════════
+            STEP 1 — Criteria pairwise comparisons
+        ══════════════════════════════════════════ */}
+        <div className={styles.stepSection}>
+          <div className={styles.stepHeader}>
+            <span className={styles.stepPill}>Step 1</span>
+            <div>
+              <h2 className={styles.stepTitle}>Criteria Importance</h2>
+              <p className={styles.stepSubtitle}>
+                Compare each pair of factors to establish their relative weights
+              </p>
+            </div>
+          </div>
 
-            return (
-              <div key={key} className={styles.comparisonCard}>
-                <div className={styles.factorRow}>
-                  <span className={`${styles.factorLabel} ${!isEqual && isLeft ? styles.factorActive : ""}`}>
-                    {factorA}
-                  </span>
-                  <span className={styles.vsTag}>vs</span>
-                  <span className={`${styles.factorLabel} ${styles.factorRight} ${!isEqual && !isLeft ? styles.factorActive : ""}`}>
-                    {factorB}
-                  </span>
-                </div>
+          <div className={styles.comparisonsGrid}>
+            {FACTOR_PAIRS.map(([a, b]) => {
+              const key = `${a}|${b}`;
+              return (
+                <ComparisonCard
+                  key={key}
+                  labelA={a}
+                  labelB={b}
+                  value={critComparisons[key]}
+                  onChange={(v) => handleCritChange(key, v)}
+                />
+              );
+            })}
+          </div>
+        </div>
 
-                <div className={styles.sliderWrapper}>
-                  <div className={styles.sliderTrackLabels}>
-                    {SLIDER_STEPS.map((step, i) => (
-                      <div
-                        key={i}
-                        className={`${styles.trackMark} ${i === idx ? styles.trackMarkActive : ""}`}
-                        style={{
-                          backgroundColor: i === idx
-                            ? (step > 0 ? "#0A6EFF" : step < 0 ? "#8b5cf6" : "#64748b")
-                            : undefined,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={SLIDER_STEPS.length - 1}
-                    step={1}
-                    value={idx}
-                    onChange={(e) => handleSliderChange(key, Number(e.target.value))}
-                    className={styles.slider}
-                  />
-                  <div className={styles.sliderStepLabels}>
-                    {SLIDER_STEPS.map((step, i) => (
-                      <span
-                        key={i}
-                        className={`${styles.stepLabel} ${i === idx ? styles.stepLabelActive : ""}`}
-                      >
-                        {Math.abs(step) === 1 ? "=" : Math.abs(step)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+        {/* ══════════════════════════════════════════
+            STEP 2 — Alternative comparisons per factor
+        ══════════════════════════════════════════ */}
+        <div className={styles.stepSection}>
+          <div className={styles.stepHeader}>
+            <span className={`${styles.stepPill} ${styles.stepPillGreen}`}>Step 2</span>
+            <div>
+              <h2 className={styles.stepTitle}>Maintenance Strategies per Criterion</h2>
+              <p className={styles.stepSubtitle}>
+                For each criterion, compare how well each maintenance strategy satisfies it
+              </p>
+            </div>
+          </div>
 
-                <p className={styles.comparisonDesc}>
-                  {importanceDescription(factorA, factorB, value)}
-                </p>
+          {FACTORS.map((factor) => (
+            <div key={factor} className={styles.altGroup}>
+              <div className={styles.altGroupHeader}>
+                <span className={styles.altGroupLabel}>{factor}</span>
+                <span className={styles.altGroupSub}>
+                  Compare maintenance strategies under this criterion
+                </span>
               </div>
-            );
-          })}
+
+              <div className={styles.comparisonsGrid}>
+                {STRAT_PAIRS.map(([a, b]) => {
+                  const key = `${a}|${b}`;
+                  return (
+                    <ComparisonCard
+                      key={`${factor}|${key}`}
+                      labelA={a}
+                      labelB={b}
+                      value={altComparisons[factor][key]}
+                      onChange={(v) => handleAltChange(factor, key, v)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* ── Submit / Reset ── */}
         <div className={styles.actionRow}>
-          <button className={styles.resetBtn} onClick={handleReset}>Reset All</button>
+          <button className={styles.resetBtn} onClick={handleReset}>
+            Reset All
+          </button>
           <button className={styles.submitBtn} onClick={handleSubmit}>
             Calculate Maintenance Strategy →
           </button>
         </div>
 
-        {/* ── Results ── */}
+        {/* ══════════════════════════════════════════
+            RESULTS
+        ══════════════════════════════════════════ */}
         {submitted && (
           <div id="results-section" className={styles.resultsSection}>
 
@@ -212,7 +410,10 @@ export default function CriticalityPage() {
             {/* Top recommendation banner */}
             <div
               className={styles.topRecommendation}
-              style={{ borderColor: topStrategy.color, backgroundColor: topStrategy.color + "12" }}
+              style={{
+                borderColor: topStrategy.color,
+                backgroundColor: topStrategy.color + "12",
+              }}
             >
               <div className={styles.topRecIcon}>{topStrategy.icon}</div>
               <div className={styles.topRecText}>
@@ -223,7 +424,7 @@ export default function CriticalityPage() {
               </div>
               <div className={styles.topRecScore} style={{ color: topStrategy.color }}>
                 {scores[topStrategy.id].toFixed(1)}
-                <span className={styles.topRecScoreUnit}>/100</span>
+                <span className={styles.topRecScoreUnit}>%</span>
               </div>
             </div>
 
@@ -231,8 +432,6 @@ export default function CriticalityPage() {
             <div className={styles.rankingList}>
               {rankedStrategies.map((strategy, index) => {
                 const score = scores[strategy.id] ?? 0;
-                const barWidth = `${score}%`;
-
                 return (
                   <div key={strategy.id} className={styles.rankRow}>
                     <span className={styles.rankNumber}>{index + 1}</span>
@@ -242,7 +441,10 @@ export default function CriticalityPage() {
                         <span className={styles.rankIcon}>{strategy.icon}</span>
                         <span className={styles.rankName}>{strategy.label}</span>
                         {index === 0 && (
-                          <span className={styles.rankBadge} style={{ backgroundColor: strategy.color }}>
+                          <span
+                            className={styles.rankBadge}
+                            style={{ backgroundColor: strategy.color }}
+                          >
                             Recommended
                           </span>
                         )}
@@ -250,23 +452,38 @@ export default function CriticalityPage() {
                       <div className={styles.rankBarTrack}>
                         <div
                           className={styles.rankBarFill}
-                          style={{ width: barWidth, backgroundColor: strategy.color }}
+                          style={{ width: `${score}%`, backgroundColor: strategy.color }}
                         />
                       </div>
                     </div>
 
                     <span className={styles.rankScore} style={{ color: strategy.color }}>
                       {score.toFixed(1)}
-                      <span className={styles.rankScoreUnit}>/100</span>
+                      <span className={styles.rankScoreUnit}>%</span>
                     </span>
                   </div>
                 );
               })}
             </div>
 
+            {/* Criteria weights summary */}
+            <div className={styles.summaryCard}>
+              <h3 className={styles.summaryTitle}>Criteria Weights</h3>
+              <div className={styles.weightsGrid}>
+                {FACTORS.map((factor, i) => (
+                  <div key={factor} className={styles.weightItem}>
+                    <span className={styles.weightValue}>
+                      {((critWeights[i] ?? 0) * 100).toFixed(1)}%
+                    </span>
+                    <span className={styles.weightLabel}>{factor}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Comparison summary table */}
             <div className={styles.summaryCard}>
-              <h3 className={styles.summaryTitle}>Factor Comparison Summary</h3>
+              <h3 className={styles.summaryTitle}>Criteria Comparison Summary</h3>
               <div className={styles.summaryTable}>
                 <div className={styles.summaryTableHead}>
                   <span>Factor A</span>
@@ -274,13 +491,15 @@ export default function CriticalityPage() {
                   <span>Value</span>
                   <span>Interpretation</span>
                 </div>
-                {PAIRS.map(([a, b]) => {
-                  const v = comparisons[`${a}|${b}`];
+                {FACTOR_PAIRS.map(([a, b]) => {
+                  const v = critComparisons[`${a}|${b}`];
                   return (
                     <div key={`${a}|${b}`} className={styles.summaryTableRow}>
                       <span className={styles.summaryFactor}>{a}</span>
                       <span className={styles.summaryFactor}>{b}</span>
-                      <span className={styles.summaryValue}>{v > 0 ? `+${v}` : v}</span>
+                      <span className={styles.summaryValue}>
+                        {v === 1 ? "1" : v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
+                      </span>
                       <span className={styles.summaryInterp}>
                         {importanceDescription(a, b, v)}
                       </span>
@@ -290,8 +509,42 @@ export default function CriticalityPage() {
               </div>
             </div>
 
+            {/* Alternative comparison summary — one table per factor */}
+            {FACTORS.map((factor) => (
+              <div key={factor} className={styles.summaryCard}>
+                <h3 className={styles.summaryTitle}>
+                  Strategy Comparisons — {factor}
+                </h3>
+                <div className={styles.summaryTable}>
+                  <div className={styles.summaryTableHead}>
+                    <span>Strategy A</span>
+                    <span>Strategy B</span>
+                    <span>Value</span>
+                    <span>Interpretation</span>
+                  </div>
+                  {STRAT_PAIRS.map(([a, b]) => {
+                    const v = altComparisons[factor][`${a}|${b}`];
+                    return (
+                      <div key={`${a}|${b}`} className={styles.summaryTableRow}>
+                        <span className={styles.summaryFactor}>{a}</span>
+                        <span className={styles.summaryFactor}>{b}</span>
+                        <span className={styles.summaryValue}>
+                          {v === 1 ? "1" : v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
+                        </span>
+                        <span className={styles.summaryInterp}>
+                          {importanceDescription(a, b, v)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
             <div className={styles.recalcRow}>
-              <button className={styles.resetBtn} onClick={handleReset}>← Start Over</button>
+              <button className={styles.resetBtn} onClick={handleReset}>
+                ← Start Over
+              </button>
             </div>
           </div>
         )}
