@@ -3,6 +3,8 @@
 import { useState } from "react";
 import styles from "./page.module.css";
 
+
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const FACTORS = ["Cost", "Long Term Reliability", "Uptime", "Utilization of Technology"] as const;

@@ -1,15 +1,13 @@
 "use client";
 
 import { machines, getMachineById } from "@/app/lib/machineData";
+import { useAppContext } from "@/app/context/AppContext";
 import styles from "./UpperSection.module.css";
 
-interface UpperSectionProps {
-  selectedMachineId: string;
-  onMachineChange: (id: string) => void;
-}
-
-export default function UpperSection({ selectedMachineId, onMachineChange }: UpperSectionProps) {
+export default function UpperSection() {
+  const { selectedMachineId, setSelectedMachineId } = useAppContext();
   const machine = getMachineById(selectedMachineId)!;
+    if (!machine) return null;
 
   return (
     <section className={styles.upperSection}>
@@ -43,7 +41,7 @@ export default function UpperSection({ selectedMachineId, onMachineChange }: Upp
               id="machine-select"
               className={styles.dropdown}
               value={selectedMachineId}
-              onChange={(e) => onMachineChange(e.target.value)}
+              onChange={(e) => setSelectedMachineId(e.target.value)}
             >
               {machines.map((m) => (
                 <option key={m.id} value={m.id}>

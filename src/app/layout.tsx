@@ -3,6 +3,8 @@ import Script from "next/script";
 import "@/app/styles/globals.css";
 
 import Header from "./components/Header/Header";
+import UpperSection from "./components/UpperSection/UpperSection";
+import { AppProvider } from "@/app/context/AppContext";
 
 export const metadata: Metadata = {
   title: {
@@ -11,10 +13,7 @@ export const metadata: Metadata = {
   },
   description:
     "Fix Flow is a web-based platform designed to support machine maintenance decision-making and performance monitoring. It features a centralized dashboard that integrates machine criticality assessment using the Analytic Hierarchy Process (AHP), PF Curve-based maintenance scheduling, KPI tracking (OEE, MTBF, MTTR), and spare parts management—helping optimize maintenance strategies, improve equipment reliability, and streamline operations.",
-  keywords: [
-    "Fix Flow",
-    "Machine Maintenance"
-  ],
+  keywords: ["Fix Flow", "Machine Maintenance"],
   authors: [{ name: "Ryan Santiago" }],
   creator: "Ryan Santiago",
   //* add when a url is made metadataBase: new URL("WEBSITEURL.COM"),
@@ -50,8 +49,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Script /> {/* Add Web Analytics Script If Applicable*/}
-        <Header />
-        <main>{children}</main>
+        <AppProvider>
+          <Header />
+          <UpperSection  />
+          <main>{children}</main>
+        </AppProvider>
       </body>
     </html>
   );
