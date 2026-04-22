@@ -1,27 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import styles from "./page.module.css";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface OEEInputs {
-  runTime: string;
-  plannedProductionTime: string;
-  idealCycleTime: string;
-  totalCount: string;
-  goodCount: string;
-}
-
-interface MTBFInputs {
-  totalOperatingTime: string;
-  numberOfFailures: string;
-}
-
-interface MTTRInputs {
-  totalRepairTime: string;
-  numberOfRepairs: string;
-}
+import { useAppContext } from "@/app/context/AppContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,11 +19,6 @@ function safeDivide(numerator: number, denominator: number): number | null {
 function formatPercent(val: number | null): string {
   if (val === null) return "—";
   return `${(val * 100).toFixed(2)}%`;
-}
-
-function formatDecimal(val: number | null, decimals = 2): string {
-  if (val === null) return "—";
-  return val.toFixed(decimals);
 }
 
 function formatHours(val: number | null): string {
@@ -118,33 +94,20 @@ function ComputedRow({ label, formula, value, valueClass }: ComputedRowProps) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function KPIPage() {
-  // OEE state
-  const [oee, setOee] = useState<OEEInputs>({
-    runTime: "",
-    plannedProductionTime: "",
-    idealCycleTime: "",
-    totalCount: "",
-    goodCount: "",
-  });
-
-  // MTBF state
-  const [mtbf, setMtbf] = useState<MTBFInputs>({
-    totalOperatingTime: "",
-    numberOfFailures: "",
-  });
-
-  // MTTR state
-  const [mttr, setMttr] = useState<MTTRInputs>({
-    totalRepairTime: "",
-    numberOfRepairs: "",
-  });
+  // ── Pull inputs + setter from context (persists across navigation) ──
+  const {
+    oeeInputs,  setOeeInputs,
+    mtbfInputs, setMtbfInputs,
+    mttrInputs, setMttrInputs,
+    setKpiOutputs,
+  } = useAppContext();
 
   // ── OEE Computed ──
-  const runTime            = toNum(oee.runTime);
-  const plannedTime        = toNum(oee.plannedProductionTime);
-  const idealCycleTime     = toNum(oee.idealCycleTime);
-  const totalCount         = toNum(oee.totalCount);
-  const goodCount          = toNum(oee.goodCount);
+  const runTime        = toNum(oeeInputs.runTime);
+  const plannedTime    = toNum(oeeInputs.plannedProductionTime);
+  const idealCycleTime = toNum(oeeInputs.idealCycleTime);
+  const totalCount     = toNum(oeeInputs.totalCount);
+  const goodCount      = toNum(oeeInputs.goodCount);
 
   const availability = safeDivide(runTime, plannedTime);
   const performance  = safeDivide(idealCycleTime * totalCount, runTime);
@@ -156,20 +119,29 @@ export default function KPIPage() {
       : null;
 
   // ── MTBF Computed ──
-  const totalOpTime     = toNum(mtbf.totalOperatingTime);
-  const numFailures     = toNum(mtbf.numberOfFailures);
-  const mtbfValue       = safeDivide(totalOpTime, numFailures);
+  const totalOpTime = toNum(mtbfInputs.totalOperatingTime);
+  const numFailures = toNum(mtbfInputs.numberOfFailures);
+  const mtbfValue   = safeDivide(totalOpTime, numFailures);
 
   // ── MTTR Computed ──
-  const totalRepairTime = toNum(mttr.totalRepairTime);
-  const numRepairs      = toNum(mttr.numberOfRepairs);
+  const totalRepairTime = toNum(mttrInputs.totalRepairTime);
+  const numRepairs      = toNum(mttrInputs.numberOfRepairs);
   const mttrValue       = safeDivide(totalRepairTime, numRepairs);
 
-  // ── Helpers for OEE sub-bar widths (capped at 100%) ──
-  const barWidth = (val: number | null) =>
-    val === null ? "0%" : `${Math.min(val * 100, 100).toFixed(1)}%`;
+  // ── Sync computed outputs to context whenever they change ──
+  useEffect(() => {
+    setKpiOutputs({
+      oeeScore,
+      availability,
+      performance,
+      quality,
+      mtbf: mtbfValue,
+      mttr: mttrValue,
+    });
+  }, [oeeScore, availability, performance, quality, mtbfValue, mttrValue]);
 
-  const oeeBarWidth = (val: number | null) =>
+  // ── Bar width helpers ──
+  const barWidth = (val: number | null) =>
     val === null ? "0%" : `${Math.min(val * 100, 100).toFixed(1)}%`;
 
   return (
@@ -214,7 +186,7 @@ export default function KPIPage() {
             <div className={styles.oeeBarTrack}>
               <div
                 className={`${styles.oeeBarFill} ${oeeStatus(oeeScore)}`}
-                style={{ width: oeeBarWidth(oeeScore) }}
+                style={{ width: barWidth(oeeScore) }}
               />
             </div>
             <div className={styles.oeeBarBenchmarks}>
@@ -245,15 +217,15 @@ export default function KPIPage() {
                 <InputField
                   label="Run Time"
                   unit="hrs"
-                  value={oee.runTime}
-                  onChange={(v) => setOee((p) => ({ ...p, runTime: v }))}
+                  value={oeeInputs.runTime}
+                  onChange={(v) => setOeeInputs({ ...oeeInputs, runTime: v })}
                   hint="Actual time the machine was running"
                 />
                 <InputField
                   label="Planned Production Time"
                   unit="hrs"
-                  value={oee.plannedProductionTime}
-                  onChange={(v) => setOee((p) => ({ ...p, plannedProductionTime: v }))}
+                  value={oeeInputs.plannedProductionTime}
+                  onChange={(v) => setOeeInputs({ ...oeeInputs, plannedProductionTime: v })}
                   hint="Scheduled time available for production"
                 />
               </div>
@@ -285,15 +257,15 @@ export default function KPIPage() {
                 <InputField
                   label="Ideal Cycle Time"
                   unit="hrs/unit"
-                  value={oee.idealCycleTime}
-                  onChange={(v) => setOee((p) => ({ ...p, idealCycleTime: v }))}
+                  value={oeeInputs.idealCycleTime}
+                  onChange={(v) => setOeeInputs({ ...oeeInputs, idealCycleTime: v })}
                   hint="Fastest possible time to produce one unit"
                 />
                 <InputField
                   label="Total Count"
                   unit="units"
-                  value={oee.totalCount}
-                  onChange={(v) => setOee((p) => ({ ...p, totalCount: v }))}
+                  value={oeeInputs.totalCount}
+                  onChange={(v) => setOeeInputs({ ...oeeInputs, totalCount: v })}
                   hint="Total units produced (good + defective)"
                 />
               </div>
@@ -325,15 +297,15 @@ export default function KPIPage() {
                 <InputField
                   label="Good Count"
                   unit="units"
-                  value={oee.goodCount}
-                  onChange={(v) => setOee((p) => ({ ...p, goodCount: v }))}
+                  value={oeeInputs.goodCount}
+                  onChange={(v) => setOeeInputs({ ...oeeInputs, goodCount: v })}
                   hint="Units that meet quality standards"
                 />
                 <InputField
                   label="Total Count"
                   unit="units"
-                  value={oee.totalCount}
-                  onChange={(v) => setOee((p) => ({ ...p, totalCount: v }))}
+                  value={oeeInputs.totalCount}
+                  onChange={(v) => setOeeInputs({ ...oeeInputs, totalCount: v })}
                   hint="Already entered above — shared field"
                 />
               </div>
@@ -373,14 +345,14 @@ export default function KPIPage() {
                   <InputField
                     label="Total Operating Time"
                     unit="hrs"
-                    value={mtbf.totalOperatingTime}
-                    onChange={(v) => setMtbf((p) => ({ ...p, totalOperatingTime: v }))}
+                    value={mtbfInputs.totalOperatingTime}
+                    onChange={(v) => setMtbfInputs({ ...mtbfInputs, totalOperatingTime: v })}
                     hint=""
                   />
                   <InputField
                     label="Number of Failures"
-                    value={mtbf.numberOfFailures}
-                    onChange={(v) => setMtbf((p) => ({ ...p, numberOfFailures: v }))}
+                    value={mtbfInputs.numberOfFailures}
+                    onChange={(v) => setMtbfInputs({ ...mtbfInputs, numberOfFailures: v })}
                     hint=""
                   />
                 </div>
@@ -418,14 +390,14 @@ export default function KPIPage() {
                   <InputField
                     label="Total Repair Time"
                     unit="hrs"
-                    value={mttr.totalRepairTime}
-                    onChange={(v) => setMttr((p) => ({ ...p, totalRepairTime: v }))}
+                    value={mttrInputs.totalRepairTime}
+                    onChange={(v) => setMttrInputs({ ...mttrInputs, totalRepairTime: v })}
                     hint="Sum of all time spent on repairs"
                   />
                   <InputField
                     label="Number of Repairs"
-                    value={mttr.numberOfRepairs}
-                    onChange={(v) => setMttr((p) => ({ ...p, numberOfRepairs: v }))}
+                    value={mttrInputs.numberOfRepairs}
+                    onChange={(v) => setMttrInputs({ ...mttrInputs, numberOfRepairs: v })}
                     hint="Total repair events in the period"
                   />
                 </div>
