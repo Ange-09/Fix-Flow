@@ -793,4 +793,38 @@
     flex-direction: column;
     gap: 0.25rem;
   }
+
+  .directionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.directionSide {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #a8c4af;
+  transition: color 0.15s ease;
+  flex: 1;
+}
+
+.directionRight {
+  text-align: right;
+}
+
+.directionActive {
+  color: #1a5c2a;
+  font-weight: 700;
+}
+
+.directionValue {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #0d1f11;
+  min-width: 1.5rem;
+  text-align: center;
+}
 }

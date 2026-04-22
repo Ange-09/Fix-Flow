@@ -20,7 +20,11 @@ const STRATEGIES = [
 ] as const;
 type StrategyId = (typeof STRATEGIES)[number]["id"];
 
-const SLIDER_STEPS = [-9, -7, -5, -3, 1, 3, 5, 7, 9];
+// Equal (1) removed — users must pick a dominant side
+const SLIDER_STEPS = [-9, -7, -5, -3, 3, 5, 7, 9];
+
+// Default to -3 (left factor has moderate importance) — never neutral
+const DEFAULT_COMPARISON_VALUE = -3;
 
 // All unique pairs (i < j)
 function makePairs<T extends string>(items: readonly T[]): [T, T][] {
@@ -31,15 +35,15 @@ function makePairs<T extends string>(items: readonly T[]): [T, T][] {
   return pairs;
 }
 
-const FACTOR_PAIRS  = makePairs(FACTORS);
-const STRAT_LABELS  = STRATEGIES.map((s) => s.label) as [string, string, string];
-const STRAT_PAIRS   = makePairs(STRAT_LABELS);
+const FACTOR_PAIRS = makePairs(FACTORS);
+const STRAT_LABELS = STRATEGIES.map((s) => s.label) as [string, string, string];
+const STRAT_PAIRS  = makePairs(STRAT_LABELS);
 
 // ── State initializers ───────────────────────────────────────────────────────
 
 function initCritComparisons(): Record<string, number> {
   const map: Record<string, number> = {};
-  FACTOR_PAIRS.forEach(([a, b]) => { map[`${a}|${b}`] = 1; });
+  FACTOR_PAIRS.forEach(([a, b]) => { map[`${a}|${b}`] = DEFAULT_COMPARISON_VALUE; });
   return map;
 }
 
@@ -47,7 +51,7 @@ function initAltComparisons(): Record<Factor, Record<string, number>> {
   const result = {} as Record<Factor, Record<string, number>>;
   FACTORS.forEach((factor) => {
     result[factor] = {};
-    STRAT_PAIRS.forEach(([a, b]) => { result[factor][`${a}|${b}`] = 1; });
+    STRAT_PAIRS.forEach(([a, b]) => { result[factor][`${a}|${b}`] = DEFAULT_COMPARISON_VALUE; });
   });
   return result;
 }
@@ -59,9 +63,9 @@ function initAltComparisons(): Record<Factor, Record<string, number>> {
  * into a full n×n ratio matrix.
  *
  * Sign convention (matches the slider UX):
- *   value === 1           → equal importance    → ratio = 1
- *   value < 0 (e.g. -5)  → A dominates B       → ratio = |value|
- *   value > 0 (e.g.  5)  → B dominates A       → ratio = 1 / value
+ *   value < 0 (e.g. -5)  → A dominates B  → ratio = |value|
+ *   value > 0 (e.g.  5)  → B dominates A  → ratio = 1 / value
+ *   (value === 1 / equal is no longer possible)
  */
 function buildMatrix(labels: readonly string[], map: Record<string, number>): number[][] {
   const n = labels.length;
@@ -69,11 +73,8 @@ function buildMatrix(labels: readonly string[], map: Record<string, number>): nu
 
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
-      const v = map[`${labels[i]}|${labels[j]}`] ?? 1;
-      let ratio: number;
-      if (v === 1)       ratio = 1;
-      else if (v < 0)    ratio = Math.abs(v);
-      else               ratio = 1 / v;
+      const v = map[`${labels[i]}|${labels[j]}`] ?? DEFAULT_COMPARISON_VALUE;
+      const ratio = v < 0 ? Math.abs(v) : 1 / v;
       M[i][j] = ratio;
       M[j][i] = 1 / ratio;
     }
@@ -106,8 +107,7 @@ function computeAHP(
   critComparisons: Record<string, number>,
   altComparisons:  Record<Factor, Record<string, number>>
 ): Record<StrategyId, number> {
-  const critWeights = deriveWeights(buildMatrix(FACTORS, critComparisons));
-
+  const critWeights  = deriveWeights(buildMatrix(FACTORS, critComparisons));
   const globalScores = STRATEGIES.map(() => 0);
 
   FACTORS.forEach((factor, fi) => {
@@ -119,7 +119,6 @@ function computeAHP(
     });
   });
 
-  // Return as percentages keyed by strategy id
   const result = {} as Record<StrategyId, number>;
   STRATEGIES.forEach((s, i) => {
     result[s.id] = globalScores[i] * 100;
@@ -132,7 +131,6 @@ function computeAHP(
 function sliderLabel(value: number): string {
   const abs = Math.abs(value);
   const labels: Record<number, string> = {
-    1: "Equal Importance",
     3: "Moderate Importance",
     5: "Strong Importance",
     7: "Very Strong Importance",
@@ -142,8 +140,7 @@ function sliderLabel(value: number): string {
 }
 
 function importanceDescription(a: string, b: string, value: number): string {
-  if (value === 1)  return `${a} and ${b} are equally important`;
-  if (value < 0)    return `${a} has ${sliderLabel(value).toLowerCase()} over ${b}`;
+  if (value < 0) return `${a} has ${sliderLabel(value).toLowerCase()} over ${b}`;
   return `${b} has ${sliderLabel(value).toLowerCase()} over ${a}`;
 }
 
@@ -163,16 +160,15 @@ interface ComparisonCardProps {
 function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps) {
   const idx    = stepIndex(value);
   const isLeft = value < 0;
-  const isEq   = value === 1;
 
   return (
     <div className={styles.comparisonCard}>
       <div className={styles.factorRow}>
-        <span className={`${styles.factorLabel} ${!isEq && isLeft  ? styles.factorActive : ""}`}>
+        <span className={`${styles.factorLabel} ${isLeft ? styles.factorActive : ""}`}>
           {labelA}
         </span>
         <span className={styles.vsTag}>vs</span>
-        <span className={`${styles.factorLabel} ${styles.factorRight} ${!isEq && !isLeft ? styles.factorActive : ""}`}>
+        <span className={`${styles.factorLabel} ${styles.factorRight} ${!isLeft ? styles.factorActive : ""}`}>
           {labelB}
         </span>
       </div>
@@ -186,11 +182,7 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
               style={{
                 backgroundColor:
                   i === idx
-                    ? step < 0
-                      ? "#534AB7"
-                      : step === 1
-                      ? "#64748b"
-                      : "#185FA5"
+                    ? step < 0 ? "#4a8c5c" : "#1a5c2a"
                     : undefined,
               }}
             />
@@ -213,11 +205,14 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
               key={i}
               className={`${styles.stepLabel} ${i === idx ? styles.stepLabelActive : ""}`}
             >
-              {Math.abs(step) === 1 ? "=" : Math.abs(step)}
+              {Math.abs(step)}
             </span>
           ))}
         </div>
       </div>
+
+      {/* Direction indicator */}
+
 
       <p className={styles.comparisonDesc}>
         {importanceDescription(labelA, labelB, value)}
@@ -231,8 +226,8 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
 export default function CriticalityPage() {
   const [critComparisons, setCritComparisons] = useState(initCritComparisons);
   const [altComparisons,  setAltComparisons]  = useState(initAltComparisons);
-  const [submitted, setSubmitted] = useState(false);
-  const [scores,    setScores]    = useState<Record<StrategyId, number>>({} as Record<StrategyId, number>);
+  const [submitted,  setSubmitted]  = useState(false);
+  const [scores,     setScores]     = useState<Record<StrategyId, number>>({} as Record<StrategyId, number>);
   const [critWeights, setCritWeights] = useState<number[]>([]);
 
   // ── Handlers ──
@@ -251,11 +246,8 @@ export default function CriticalityPage() {
   function handleSubmit() {
     const result = computeAHP(critComparisons, altComparisons);
     setScores(result);
-
-    // Also expose criteria weights for the summary table
     const cw = deriveWeights(buildMatrix(FACTORS, critComparisons));
     setCritWeights(cw);
-
     setSubmitted(true);
     setTimeout(() => {
       document.getElementById("results-section")?.scrollIntoView({ behavior: "smooth" });
@@ -290,6 +282,7 @@ export default function CriticalityPage() {
             <p className={styles.pageSubtitle}>
               Complete two steps: first compare the four criteria against each other,
               then for each criterion, compare the three maintenance strategies.
+              Every comparison requires a clear choice — no equal ratings allowed.
             </p>
           </div>
           <div className={styles.progressInfo}>
@@ -304,9 +297,9 @@ export default function CriticalityPage() {
         <div className={styles.legendCard}>
           <span className={styles.legendTitle}>Saaty Scale Reference</span>
           <div className={styles.legendItems}>
-            {[1, 3, 5, 7, 9].map((v) => (
+            {[3, 5, 7, 9].map((v) => (
               <div key={v} className={styles.legendItem}>
-                <span className={styles.legendValue}>{v === 1 ? "1" : `±${v}`}</span>
+                <span className={styles.legendValue}>±{v}</span>
                 <span className={styles.legendDesc}>{sliderLabel(v)}</span>
               </div>
             ))}
@@ -322,7 +315,8 @@ export default function CriticalityPage() {
             <div>
               <h2 className={styles.stepTitle}>Criteria Importance</h2>
               <p className={styles.stepSubtitle}>
-                Compare each pair of factors to establish their relative weights
+                Compare each pair of factors to establish their relative weights.
+                Slide left to favour the first factor, right to favour the second.
               </p>
             </div>
           </div>
@@ -352,7 +346,8 @@ export default function CriticalityPage() {
             <div>
               <h2 className={styles.stepTitle}>Maintenance Strategies per Criterion</h2>
               <p className={styles.stepSubtitle}>
-                For each criterion, compare how well each maintenance strategy satisfies it
+                For each criterion, compare how well each maintenance strategy satisfies it.
+                Slide left to favour the first strategy, right to favour the second.
               </p>
             </div>
           </div>
@@ -481,7 +476,7 @@ export default function CriticalityPage() {
               </div>
             </div>
 
-            {/* Comparison summary table */}
+            {/* Criteria comparison summary table */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>Criteria Comparison Summary</h3>
               <div className={styles.summaryTable}>
@@ -498,7 +493,7 @@ export default function CriticalityPage() {
                       <span className={styles.summaryFactor}>{a}</span>
                       <span className={styles.summaryFactor}>{b}</span>
                       <span className={styles.summaryValue}>
-                        {v === 1 ? "1" : v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
+                        {v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
                       </span>
                       <span className={styles.summaryInterp}>
                         {importanceDescription(a, b, v)}
@@ -529,7 +524,7 @@ export default function CriticalityPage() {
                         <span className={styles.summaryFactor}>{a}</span>
                         <span className={styles.summaryFactor}>{b}</span>
                         <span className={styles.summaryValue}>
-                          {v === 1 ? "1" : v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
+                          {v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
                         </span>
                         <span className={styles.summaryInterp}>
                           {importanceDescription(a, b, v)}
