@@ -20,13 +20,9 @@ const STRATEGIES = [
 ] as const;
 type StrategyId = (typeof STRATEGIES)[number]["id"];
 
-// Equal (1) removed — users must pick a dominant side
 const SLIDER_STEPS = [-9, -7, -5, -3, 3, 5, 7, 9];
-
-// Default to -3 (left factor has moderate importance) — never neutral
 const DEFAULT_COMPARISON_VALUE = -3;
 
-// All unique pairs (i < j)
 function makePairs<T extends string>(items: readonly T[]): [T, T][] {
   const pairs: [T, T][] = [];
   for (let i = 0; i < items.length; i++)
@@ -58,15 +54,6 @@ function initAltComparisons(): Record<Factor, Record<string, number>> {
 
 // ── AHP Math ─────────────────────────────────────────────────────────────────
 
-/**
- * Converts a pairwise comparison map (key = "A|B", value = Saaty integer)
- * into a full n×n ratio matrix.
- *
- * Sign convention (matches the slider UX):
- *   value < 0 (e.g. -5)  → A dominates B  → ratio = |value|
- *   value > 0 (e.g.  5)  → B dominates A  → ratio = 1 / value
- *   (value === 1 / equal is no longer possible)
- */
 function buildMatrix(labels: readonly string[], map: Record<string, number>): number[][] {
   const n = labels.length;
   const M: number[][] = Array.from({ length: n }, () => Array(n).fill(1));
@@ -74,18 +61,13 @@ function buildMatrix(labels: readonly string[], map: Record<string, number>): nu
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const v = map[`${labels[i]}|${labels[j]}`] ?? DEFAULT_COMPARISON_VALUE;
-      const ratio = v < 0 ? Math.abs(v) : 1 / v;
-      M[i][j] = ratio;
+      const ratio = v < 0 ? 1 / Math.abs(v) : v;      M[i][j] = ratio;
       M[j][i] = 1 / ratio;
     }
   }
   return M;
 }
 
-/**
- * Derives priority weights from a pairwise matrix using the
- * normalized column sum (eigenvector approximation).
- */
 function deriveWeights(M: number[][]): number[] {
   const n = M.length;
   const colSums = Array(n).fill(0);
@@ -97,33 +79,77 @@ function deriveWeights(M: number[][]): number[] {
   return normalized.map((row) => row.reduce((sum, v) => sum + v, 0) / n);
 }
 
-/**
- * Full two-level AHP:
- *   1. Derive criteria weights from factor pairwise comparisons.
- *   2. For each factor, derive local strategy weights from alternative comparisons.
- *   3. Global score = sum over factors of (criteria_weight × local_strategy_weight).
- */
+const RI_TABLE: Record<number, number> = { 1: 0, 2: 0, 3: 0.58, 4: 0.9, 5: 1.12, 6: 1.24 };
+
+interface ConsistencyResult {
+  lambdaMax: number;
+  ci: number;
+  ri: number;
+  cr: number;
+}
+
+function computeConsistency(M: number[][], weights: number[]): ConsistencyResult {
+  const n = M.length;
+
+  const weightedSum = M.map((row) =>
+    row.reduce((sum, val, j) => sum + val * weights[j], 0)
+  );
+
+  const lambdaValues = weightedSum.map((ws, i) =>
+    weights[i] === 0 ? 0 : ws / weights[i]
+  );
+
+  const lambdaMax = lambdaValues.reduce((sum, v) => sum + v, 0) / n;
+  const ci = (lambdaMax - n) / (n - 1);
+  const ri = RI_TABLE[n] ?? 0.9;
+  const cr = ri === 0 ? 0 : ci / ri;
+
+  return { lambdaMax, ci, ri, cr };
+}
+
 function computeAHP(
   critComparisons: Record<string, number>,
   altComparisons:  Record<Factor, Record<string, number>>
-): Record<StrategyId, number> {
-  const critWeights  = deriveWeights(buildMatrix(FACTORS, critComparisons));
-  const globalScores = STRATEGIES.map(() => 0);
+): {
+  scores:          Record<StrategyId, number>;
+  critWeights:     Record<Factor, number>;
+  localWeights:    Record<Factor, number[]>;
+  consistency:     { criteria: ConsistencyResult } & Record<string, ConsistencyResult>;
+} {
+  const critMatrix      = buildMatrix(FACTORS, critComparisons);
+  const critWtArray     = deriveWeights(critMatrix);
+  const critConsistency = computeConsistency(critMatrix, critWtArray);
 
-  FACTORS.forEach((factor, fi) => {
-    const localWeights = deriveWeights(
-      buildMatrix(STRAT_LABELS, altComparisons[factor])
-    );
-    localWeights.forEach((w, si) => {
-      globalScores[si] += critWeights[fi] * w;
+  // Build explicit factor→weight map — eliminates index-alignment risk
+  const critWeights = {} as Record<Factor, number>;
+  FACTORS.forEach((factor, i) => { critWeights[factor] = critWtArray[i]; });
+
+  const localWeights  = {} as Record<Factor, number[]>;
+  const globalScores  = STRATEGIES.map(() => 0);
+  const altConsistency = {} as Record<string, ConsistencyResult>;
+
+  FACTORS.forEach((factor) => {
+    const altMatrix = buildMatrix(STRAT_LABELS, altComparisons[factor]);
+    const lw        = deriveWeights(altMatrix);
+    localWeights[factor]  = lw;
+    altConsistency[factor] = computeConsistency(altMatrix, lw);
+
+    lw.forEach((w, si) => {
+      globalScores[si] += critWeights[factor] * w;
     });
+  });                        // ← this closing brace was missing in Document 3
+
+  const scores = {} as Record<StrategyId, number>;
+  STRATEGIES.forEach((s, i) => {
+    scores[s.id] = globalScores[i] * 100;
   });
 
-  const result = {} as Record<StrategyId, number>;
-  STRATEGIES.forEach((s, i) => {
-    result[s.id] = globalScores[i] * 100;
-  });
-  return result;
+  return {
+    scores,
+    critWeights,
+    localWeights,
+    consistency: { criteria: critConsistency, ...altConsistency },
+  };
 }
 
 // ── Label helpers ─────────────────────────────────────────────────────────────
@@ -148,18 +174,24 @@ function stepIndex(value: number): number {
   return SLIDER_STEPS.indexOf(value);
 }
 
+function crStatus(cr: number): "good" | "warn" | "bad" {
+  if (cr <= 0.1)  return "good";
+  if (cr <= 0.15) return "warn";
+  return "bad";
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 interface ComparisonCardProps {
-  labelA: string;
-  labelB: string;
-  value: number;
+  labelA:   string;
+  labelB:   string;
+  value:    number;
   onChange: (newValue: number) => void;
 }
 
 function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps) {
-  const idx    = stepIndex(value);
   const isLeft = value < 0;
+  const idx    = stepIndex(value);
 
   return (
     <div className={styles.comparisonCard}>
@@ -180,10 +212,9 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
               key={i}
               className={`${styles.trackMark} ${i === idx ? styles.trackMarkActive : ""}`}
               style={{
-                backgroundColor:
-                  i === idx
-                    ? step < 0 ? "#4a8c5c" : "#1a5c2a"
-                    : undefined,
+                backgroundColor: i === idx
+                  ? (step < 0 ? "#4a8c5c" : "#1a5c2a")
+                  : undefined,
               }}
             />
           ))}
@@ -211,9 +242,6 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
         </div>
       </div>
 
-      {/* Direction indicator */}
-
-
       <p className={styles.comparisonDesc}>
         {importanceDescription(labelA, labelB, value)}
       </p>
@@ -226,9 +254,10 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
 export default function CriticalityPage() {
   const [critComparisons, setCritComparisons] = useState(initCritComparisons);
   const [altComparisons,  setAltComparisons]  = useState(initAltComparisons);
-  const [submitted,  setSubmitted]  = useState(false);
-  const [scores,     setScores]     = useState<Record<StrategyId, number>>({} as Record<StrategyId, number>);
-  const [critWeights, setCritWeights] = useState<number[]>([]);
+  const [submitted,    setSubmitted]    = useState(false);
+  const [scores,       setScores]       = useState<Record<StrategyId, number>>({} as Record<StrategyId, number>);
+const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Record<Factor, number>);  const [localWeights, setLocalWeights] = useState<Record<Factor, number[]>>({} as Record<Factor, number[]>);
+  const [consistency,  setConsistency]  = useState<{ criteria: ConsistencyResult } & Record<string, ConsistencyResult>>({ criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } });
 
   // ── Handlers ──
 
@@ -245,9 +274,10 @@ export default function CriticalityPage() {
 
   function handleSubmit() {
     const result = computeAHP(critComparisons, altComparisons);
-    setScores(result);
-    const cw = deriveWeights(buildMatrix(FACTORS, critComparisons));
-    setCritWeights(cw);
+    setScores(result.scores);
+    setCritWeights(result.critWeights);
+    setLocalWeights(result.localWeights);
+    setConsistency(result.consistency);
     setSubmitted(true);
     setTimeout(() => {
       document.getElementById("results-section")?.scrollIntoView({ behavior: "smooth" });
@@ -259,7 +289,8 @@ export default function CriticalityPage() {
     setAltComparisons(initAltComparisons());
     setSubmitted(false);
     setScores({} as Record<StrategyId, number>);
-    setCritWeights([]);
+    setCritWeights({} as Record<Factor, number>);    setLocalWeights({} as Record<Factor, number[]>);
+    setConsistency({ criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } });
   }
 
   const rankedStrategies = submitted
@@ -267,6 +298,12 @@ export default function CriticalityPage() {
     : [];
 
   const topStrategy = rankedStrategies[0];
+
+  // All 5 matrices for the consistency check section
+  const consistencyMatrices = submitted ? [
+    { label: "Criteria Matrix", key: "criteria", n: 4 },
+    ...FACTORS.map((f) => ({ label: `${f} (Alternatives)`, key: f, n: 3 })),
+  ] : [];
 
   // ── Render ──
 
@@ -282,7 +319,8 @@ export default function CriticalityPage() {
             <p className={styles.pageSubtitle}>
               Complete two steps: first compare the four criteria against each other,
               then for each criterion, compare the three maintenance strategies.
-              Every comparison requires a clear choice — no equal ratings allowed.
+              Every comparison requires a clear choice — slide left to favour the
+              first factor, or right to favour the second. No ties allowed.
             </p>
           </div>
           <div className={styles.progressInfo}>
@@ -316,7 +354,8 @@ export default function CriticalityPage() {
               <h2 className={styles.stepTitle}>Criteria Importance</h2>
               <p className={styles.stepSubtitle}>
                 Compare each pair of factors to establish their relative weights.
-                Slide left to favour the first factor, right to favour the second.
+                Slide left to favour the first factor, or right to favour the second.
+                Every comparison requires a clear choice — no ties allowed.
               </p>
             </div>
           </div>
@@ -406,7 +445,7 @@ export default function CriticalityPage() {
             <div
               className={styles.topRecommendation}
               style={{
-                borderColor: topStrategy.color,
+                borderColor:     topStrategy.color,
                 backgroundColor: topStrategy.color + "12",
               }}
             >
@@ -461,18 +500,95 @@ export default function CriticalityPage() {
               })}
             </div>
 
-            {/* Criteria weights summary */}
+            {/* Criteria weights + CR */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>Criteria Weights</h3>
               <div className={styles.weightsGrid}>
-                {FACTORS.map((factor, i) => (
-                  <div key={factor} className={styles.weightItem}>
-                    <span className={styles.weightValue}>
-                      {((critWeights[i] ?? 0) * 100).toFixed(1)}%
-                    </span>
-                    <span className={styles.weightLabel}>{factor}</span>
-                  </div>
+              {FACTORS.map((factor) => (
+                <div key={factor} className={styles.weightItem}>
+                  <span className={styles.weightValue}>
+                    {((critWeights[factor] ?? 0) * 100).toFixed(1)}%
+                  </span>
+                  <span className={styles.weightLabel}>{factor}</span>
+                </div>
                 ))}
+              </div>
+              <div className={styles.crRow}>
+                <span className={styles.crLabel}>Criteria Consistency Ratio (CR)</span>
+                <span className={`${styles.crValue} ${styles[crStatus(consistency.criteria.cr)]}`}>
+                  {(consistency.criteria.cr * 100).toFixed(2)}%
+                  {consistency.criteria.cr <= 0.1 ? " ✓ Consistent" : " ✗ Revise judgments"}
+                </span>
+              </div>
+            </div>
+
+            {/* Local strategy weights per factor */}
+            <div className={styles.summaryCard}>
+              <h3 className={styles.summaryTitle}>Local Strategy Weights by Criterion</h3>
+              <div className={styles.summaryTable}>
+                <div className={`${styles.summaryTableHead} ${styles.summaryTableHeadWide}`}>
+                  <span>Criterion</span>
+                  {STRATEGIES.map((s) => <span key={s.id}>{s.label}</span>)}
+                  <span>CR</span>
+                </div>
+                {FACTORS.map((factor) => {
+                  const lw = localWeights[factor] ?? [];
+                  const cr = consistency[factor]?.cr ?? 0;
+                  return (
+                    <div key={factor} className={`${styles.summaryTableRow} ${styles.summaryTableRowWide}`}>
+                      <span className={styles.summaryFactor}>{factor}</span>
+                      {STRATEGIES.map((s, si) => (
+                        <span key={s.id} className={styles.summaryValue}>
+                          {((lw[si] ?? 0) * 100).toFixed(1)}%
+                        </span>
+                      ))}
+                      <span className={`${styles.summaryValue} ${styles[crStatus(cr)]}`}>
+                        {(cr * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ══════════════════════════════════════════
+                CONSISTENCY CHECK — one row per matrix
+            ══════════════════════════════════════════ */}
+            <div className={styles.summaryCard}>
+              <h3 className={styles.summaryTitle}>Consistency Check — All Matrices</h3>
+              <p className={styles.summaryHint}>
+                Acceptable threshold: CR ≤ 10%. Values above this indicate the pairwise judgments should be revised.
+              </p>
+              <div className={styles.summaryTable}>
+                <div className={styles.consistencyTableHead}>
+                  <span>Matrix</span>
+                  <span>n</span>
+                  <span>λ<sub>max</sub></span>
+                  <span>CI</span>
+                  <span>RI</span>
+                  <span>CR</span>
+                  <span>Result</span>
+                </div>
+                {consistencyMatrices.map(({ label, key, n }) => {
+                  const c = consistency[key];
+                  if (!c) return null;
+                  const status = crStatus(c.cr);
+                  return (
+                    <div key={key} className={styles.consistencyTableRow}>
+                      <span className={styles.summaryFactor}>{label}</span>
+                      <span className={styles.summaryValue}>{n}</span>
+                      <span className={styles.summaryValue}>{c.lambdaMax.toFixed(4)}</span>
+                      <span className={styles.summaryValue}>{c.ci.toFixed(4)}</span>
+                      <span className={styles.summaryValue}>{c.ri.toFixed(2)}</span>
+                      <span className={`${styles.summaryValue} ${styles[status]}`}>
+                        {(c.cr * 100).toFixed(2)}%
+                      </span>
+                      <span className={`${styles.consistencyResult} ${styles[status]}`}>
+                        {status === "good" ? "✓ Consistent" : status === "warn" ? "⚠ Borderline" : "✗ Revise"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

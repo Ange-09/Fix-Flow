@@ -828,3 +828,55 @@
   text-align: center;
 }
 }
+
+
+/* ── Append these rules to your existing page.module.css ── */
+
+/* Consistency check table — 7 columns: Matrix | n | λmax | CI | RI | CR | Result */
+.consistencyTableHead {
+  display: grid;
+  grid-template-columns: 2fr 0.4fr 1fr 1fr 0.6fr 0.8fr 1.1fr;
+  gap: 0;
+  padding: 0.55rem 1rem;
+  background: #f0f4f1;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid #c9d9cc;
+}
+
+.consistencyTableHead span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4a6b53;
+}
+
+.consistencyTableRow {
+  display: grid;
+  grid-template-columns: 2fr 0.4fr 1fr 1fr 0.6fr 0.8fr 1.1fr;
+  gap: 0;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #f0f4f1;
+  align-items: center;
+}
+
+.consistencyTableRow:last-child {
+  border-bottom: none;
+}
+
+.consistencyResult {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.consistencyResult.good  { color: #10b981; }
+.consistencyResult.warn  { color: #f59e0b; }
+.consistencyResult.bad   { color: #ef4444; }
+
+/* Hint text under a summaryTitle */
+.summaryHint {
+  font-size: 0.78rem;
+  color: #7a9e84;
+  margin: -0.25rem 0 0.75rem 0;
+  font-weight: 400;
+}
