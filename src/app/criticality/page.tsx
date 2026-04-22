@@ -513,13 +513,7 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
                 </div>
                 ))}
               </div>
-              <div className={styles.crRow}>
-                <span className={styles.crLabel}>Criteria Consistency Ratio (CR)</span>
-                <span className={`${styles.crValue} ${styles[crStatus(consistency.criteria.cr)]}`}>
-                  {(consistency.criteria.cr * 100).toFixed(2)}%
-                  {consistency.criteria.cr <= 0.1 ? " ✓ Consistent" : " ✗ Revise judgments"}
-                </span>
-              </div>
+
             </div>
 
             {/* Local strategy weights per factor */}

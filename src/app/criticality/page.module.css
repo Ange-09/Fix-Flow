@@ -880,3 +880,11 @@
   margin: -0.25rem 0 0.75rem 0;
   font-weight: 400;
 }
+
+.summaryTableHeadWide {
+  grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr;
+}
+
+.summaryTableRowWide {
+  grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr;
+}
