@@ -20,7 +20,7 @@ const STRATEGIES = [
 ] as const;
 type StrategyId = (typeof STRATEGIES)[number]["id"];
 
-const SLIDER_STEPS = [-9, -7, -5, -3, 3, 5, 7, 9];
+const SLIDER_STEPS = [9, 7, 5, 3, -3, -5, -7, -9];
 const DEFAULT_COMPARISON_VALUE = -3;
 
 function makePairs<T extends string>(items: readonly T[]): [T, T][] {
@@ -38,12 +38,12 @@ const STRAT_PAIRS  = makePairs(STRAT_LABELS);
 // ── State initializers ───────────────────────────────────────────────────────
 
 const CRIT_DEFAULTS: Record<string, number> = {
-  "Cost|Long Term Reliability":                    -3,
-  "Cost|Uptime":                                   -5,
-  "Cost|Utilization of Technology":                -3,
-  "Long Term Reliability|Uptime":                  -3,
-  "Long Term Reliability|Utilization of Technology": 3,
-  "Uptime|Utilization of Technology":               3,
+  "Cost|Long Term Reliability":                      -3,
+  "Cost|Uptime":                                     -5,
+  "Cost|Utilization of Technology":                  -3,
+  "Long Term Reliability|Uptime":                    -3,
+  "Long Term Reliability|Utilization of Technology":  3,
+  "Uptime|Utilization of Technology":                 3,
 };
 
 function initCritComparisons(): Record<string, number> {
@@ -77,7 +77,6 @@ const ALT_DEFAULTS: Record<Factor, Record<string, number>> = {
     "Preventive Maintenance|Reactive Maintenance":    3,
   },
 };
-
 function initAltComparisons(): Record<Factor, Record<string, number>> {
   const result = {} as Record<Factor, Record<string, number>>;
   FACTORS.forEach((factor) => {
@@ -205,7 +204,7 @@ function sliderLabel(value: number): string {
 }
 
 function importanceDescription(a: string, b: string, value: number): string {
-  if (value < 0) return `${a} has ${sliderLabel(value).toLowerCase()} over ${b}`;
+  if (value > 0) return `${a} has ${sliderLabel(value).toLowerCase()} over ${b}`;
   return `${b} has ${sliderLabel(value).toLowerCase()} over ${a}`;
 }
 
@@ -229,7 +228,7 @@ interface ComparisonCardProps {
 }
 
 function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps) {
-  const isLeft = value < 0;
+  const isLeft = value > 0;
   const idx    = stepIndex(value);
 
   return (
@@ -642,8 +641,7 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
                       <span className={styles.summaryFactor}>{a}</span>
                       <span className={styles.summaryFactor}>{b}</span>
                       <span className={styles.summaryValue}>
-                        {v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
-                      </span>
+                      {v > 0 ? `${v} : 1` : `1 : ${Math.abs(v)}`}                      </span>
                       <span className={styles.summaryInterp}>
                         {importanceDescription(a, b, v)}
                       </span>
@@ -673,7 +671,7 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
                         <span className={styles.summaryFactor}>{a}</span>
                         <span className={styles.summaryFactor}>{b}</span>
                         <span className={styles.summaryValue}>
-                          {v < 0 ? `${Math.abs(v)} : 1` : `1 : ${v}`}
+                          {v > 0 ? `${v} : 1` : `1 : ${Math.abs(v)}`}
                         </span>
                         <span className={styles.summaryInterp}>
                           {importanceDescription(a, b, v)}
