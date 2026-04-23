@@ -37,17 +37,55 @@ const STRAT_PAIRS  = makePairs(STRAT_LABELS);
 
 // ── State initializers ───────────────────────────────────────────────────────
 
+const CRIT_DEFAULTS: Record<string, number> = {
+  "Cost|Long Term Reliability":                    -3,
+  "Cost|Uptime":                                   -5,
+  "Cost|Utilization of Technology":                -3,
+  "Long Term Reliability|Uptime":                  -3,
+  "Long Term Reliability|Utilization of Technology": 3,
+  "Uptime|Utilization of Technology":               3,
+};
+
 function initCritComparisons(): Record<string, number> {
   const map: Record<string, number> = {};
-  FACTOR_PAIRS.forEach(([a, b]) => { map[`${a}|${b}`] = DEFAULT_COMPARISON_VALUE; });
+  FACTOR_PAIRS.forEach(([a, b]) => {
+    const key = `${a}|${b}`;
+    map[key] = CRIT_DEFAULTS[key] ?? DEFAULT_COMPARISON_VALUE;
+  });
   return map;
 }
+
+const ALT_DEFAULTS: Record<Factor, Record<string, number>> = {
+  "Cost": {
+    "Predictive Maintenance|Preventive Maintenance": -3,
+    "Predictive Maintenance|Reactive Maintenance":   -5,
+    "Preventive Maintenance|Reactive Maintenance":   -3,
+  },
+  "Long Term Reliability": {
+    "Predictive Maintenance|Preventive Maintenance":  3,
+    "Predictive Maintenance|Reactive Maintenance":    7,
+    "Preventive Maintenance|Reactive Maintenance":    3,
+  },
+  "Uptime": {
+    "Predictive Maintenance|Preventive Maintenance":  3,
+    "Predictive Maintenance|Reactive Maintenance":    9,
+    "Preventive Maintenance|Reactive Maintenance":    5,
+  },
+  "Utilization of Technology": {
+    "Predictive Maintenance|Preventive Maintenance":  5,
+    "Predictive Maintenance|Reactive Maintenance":    9,
+    "Preventive Maintenance|Reactive Maintenance":    3,
+  },
+};
 
 function initAltComparisons(): Record<Factor, Record<string, number>> {
   const result = {} as Record<Factor, Record<string, number>>;
   FACTORS.forEach((factor) => {
     result[factor] = {};
-    STRAT_PAIRS.forEach(([a, b]) => { result[factor][`${a}|${b}`] = DEFAULT_COMPARISON_VALUE; });
+    STRAT_PAIRS.forEach(([a, b]) => {
+      const key = `${a}|${b}`;
+      result[factor][key] = ALT_DEFAULTS[factor]?.[key] ?? DEFAULT_COMPARISON_VALUE;
+    });
   });
   return result;
 }
@@ -120,24 +158,26 @@ function computeAHP(
   const critWtArray     = deriveWeights(critMatrix);
   const critConsistency = computeConsistency(critMatrix, critWtArray);
 
-  // Build explicit factor→weight map — eliminates index-alignment risk
   const critWeights = {} as Record<Factor, number>;
   FACTORS.forEach((factor, i) => { critWeights[factor] = critWtArray[i]; });
 
-  const localWeights  = {} as Record<Factor, number[]>;
-  const globalScores  = STRATEGIES.map(() => 0);
+  const localWeights   = {} as Record<Factor, number[]>;
+  const globalScores   = STRATEGIES.map(() => 0);
   const altConsistency = {} as Record<string, ConsistencyResult>;
 
-  FACTORS.forEach((factor) => {
+FACTORS.forEach((factor) => {
     const altMatrix = buildMatrix(STRAT_LABELS, altComparisons[factor]);
     const lw        = deriveWeights(altMatrix);
     localWeights[factor]  = lw;
     altConsistency[factor] = computeConsistency(altMatrix, lw);
 
     lw.forEach((w, si) => {
-      globalScores[si] += critWeights[factor] * w;
+      globalScores[si] += w;
     });
-  });                        // ← this closing brace was missing in Document 3
+  });
+
+  const totalScore = globalScores.reduce((sum, s) => sum + s, 0);
+  globalScores.forEach((_, i) => { globalScores[i] /= totalScore; });
 
   const scores = {} as Record<StrategyId, number>;
   STRATEGIES.forEach((s, i) => {
@@ -151,7 +191,6 @@ function computeAHP(
     consistency: { criteria: critConsistency, ...altConsistency },
   };
 }
-
 // ── Label helpers ─────────────────────────────────────────────────────────────
 
 function sliderLabel(value: number): string {
