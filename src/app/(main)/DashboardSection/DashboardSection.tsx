@@ -2,6 +2,7 @@
 
 import { getMachineById, DEFAULT_MACHINE_ID, type Machine, type StatusLevel } from "@/app/lib/machineData";
 import { useAppContext } from "@/app/context/AppContext";
+import type { AHPStrategyId } from "@/app/context/AppContext";
 import styles from "./DashboardSection.module.css";
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -62,30 +63,51 @@ function MiniBar({
   value,
   max = 100,
   colorClass,
+  color,
 }: {
   value: number;
   max?: number;
   colorClass?: string;
+  color?: string;
 }) {
   const pct = Math.min((value / max) * 100, 100).toFixed(1);
   return (
     <div className={styles.miniBarTrack}>
       <div
         className={`${styles.miniBarFill} ${colorClass ?? ""}`}
-        style={{ width: `${pct}%` }}
+        style={{ width: `${pct}%`, ...(color ? { backgroundColor: color } : {}) }}
       />
     </div>
   );
 }
 
-// ── Colour helpers ───────────────────────────────────────────────────────────
+// ── AHP strategy metadata ────────────────────────────────────────────────────
 
-function getCriticalityColor(score: number): string {
-  if (score >= 9) return "#ef4444";
-  if (score >= 7) return "#f97316";
-  if (score >= 5) return "#f59e0b";
-  return "#10b981";
-}
+const STRATEGY_META: Record<
+  AHPStrategyId,
+  { label: string; icon: string; color: string; description: string }
+> = {
+  predictive: {
+    label:       "Predictive Maintenance",
+    icon:        "📡",
+    color:       "#185FA5",
+    description: "Monitor condition indicators and intervene before failure occurs.",
+  },
+  preventive: {
+    label:       "Preventive Maintenance",
+    icon:        "🔧",
+    color:       "#27500A",
+    description: "Schedule maintenance at fixed intervals to prevent unexpected breakdowns.",
+  },
+  reactive: {
+    label:       "Reactive Maintenance",
+    icon:        "⚠️",
+    color:       "#854F0B",
+    description: "Address failures after they occur; suitable for non-critical assets.",
+  },
+};
+
+// ── Colour helpers ───────────────────────────────────────────────────────────
 
 function getOEEStatusClass(pct: number): string {
   if (pct >= 85) return styles.good;
@@ -109,12 +131,13 @@ interface DashboardSectionProps {
 
 export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const machine: Machine = getMachineById(machineId ?? DEFAULT_MACHINE_ID)!;
-  const { criticality, maintenance, oee, reliability, pfCurve, kpi, spareParts } = machine;
+  const { maintenance, oee, reliability, pfCurve, spareParts } = machine;
 
-  // ── Pull live KPI values from context ──
-  const { kpiOutputs } = useAppContext();
+  // ── Pull live values from context ──────────────────────────────────────────
+  const { kpiOutputs, ahpOutputs } = useAppContext();
 
   const hasLiveKPI = kpiOutputs.oeeScore !== null;
+  const hasAHP     = ahpOutputs.submitted;
 
   // Resolved display values — live context wins, static data is the fallback
   const liveOEE          = kpiOutputs.oeeScore     !== null ? kpiOutputs.oeeScore * 100     : oee.oee;
@@ -124,21 +147,25 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const liveMTBF         = kpiOutputs.mtbf         !== null ? kpiOutputs.mtbf               : reliability.mtbf;
   const liveMTTR         = kpiOutputs.mttr         !== null ? kpiOutputs.mttr               : reliability.mttr;
 
-  // Criticality visuals
-  const critColor     = getCriticalityColor(criticality.score);
-  const scoreBarWidth = `${(criticality.score / 10) * 100}%`;
-
-  // MTBF/MTTR statuses (computed from live values)
+  // MTBF/MTTR statuses
   const mtbfStatus: StatusLevel = liveMTBF >= 300 ? "good" : liveMTBF >= 150 ? "warn" : "bad";
   const mttrStatus: StatusLevel = liveMTTR <= 4   ? "good" : liveMTTR <= 8   ? "warn" : "bad";
 
-  // Recompute failure rate from live MTBF so it stays consistent
-  const liveFailureRate       = liveMTBF > 0 ? 1 / liveMTBF : reliability.failureRate;
-  const liveAvailabilityIndex = liveMTBF + liveMTTR > 0
-    ? (liveMTBF / (liveMTBF + liveMTTR)) * 100
-    : reliability.availabilityIndex;
-  const availIndexStatus: StatusLevel =
-    liveAvailabilityIndex >= 98 ? "good" : liveAvailabilityIndex >= 95 ? "warn" : "bad";
+  // ── AHP — ranked strategies ────────────────────────────────────────────────
+  const ALL_STRATEGY_IDS: AHPStrategyId[] = ["predictive", "preventive", "reactive"];
+
+  const rankedStrategies = hasAHP
+    ? [...ALL_STRATEGY_IDS].sort(
+        (a, b) => (ahpOutputs.scores[b] ?? 0) - (ahpOutputs.scores[a] ?? 0)
+      )
+    : ALL_STRATEGY_IDS;
+
+  const topStrategyId   = rankedStrategies[0];
+  const topStrategyMeta = STRATEGY_META[topStrategyId];
+  const topScore        = ahpOutputs.scores[topStrategyId] ?? 0;
+
+  // Highest score drives the bar scale so bars are relative to the top score
+  const maxScore = Math.max(...ALL_STRATEGY_IDS.map((id) => ahpOutputs.scores[id] ?? 0), 1);
 
   return (
     <section className={styles.dashboardSection}>
@@ -148,64 +175,136 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
           {hasLiveKPI && (
             <span className={styles.liveKpiTag}>KPI inputs active</span>
           )}
+          {hasAHP && (
+            <span className={styles.ahpTag}>AHP computed</span>
+          )}
           <span className={styles.liveTag}>● Live</span>
         </div>
       </div>
 
       <div className={styles.grid}>
 
-        {/* ── Column 1 — Criticality + Maintenance ──────────────── */}
+        {/* ── Column 1 — Recommended Strategy + Strategy Ranking ── */}
         <div className={styles.col}>
 
-          <DashboardCard title="Criticality Score" subtitle="AHP Assessment" accent={critColor}>
-            <div className={styles.scoreDisplay}>
-              <span className={styles.scoreBig} style={{ color: critColor }}>
-                {criticality.score.toFixed(1)}
-              </span>
-              <span className={styles.scoreMax}>/10</span>
-            </div>
-            <div className={styles.scoreBar}>
-              <div
-                className={styles.scoreBarFill}
-                style={{ width: scoreBarWidth, backgroundColor: critColor }}
-              />
-            </div>
-            <p className={styles.scoreLabel}>
-              {criticality.label} — {criticality.recommendation}
-            </p>
+          {/* Card 1 — Recommended Maintenance Strategy */}
+          <DashboardCard
+            title="Recommended Strategy"
+            subtitle="Based on AHP Assessment"
+            accent={hasAHP ? topStrategyMeta.color : "#c9d9cc"}
+          >
+            {hasAHP ? (
+              <>
+                <div
+                  className={styles.strategyRecommendBanner}
+                  style={{
+                    borderColor:     topStrategyMeta.color,
+                    backgroundColor: topStrategyMeta.color + "12",
+                  }}
+                >
+                  <span className={styles.strategyRecommendIcon}>{topStrategyMeta.icon}</span>
+                  <div className={styles.strategyRecommendText}>
+                    <span
+                      className={styles.strategyRecommendName}
+                      style={{ color: topStrategyMeta.color }}
+                    >
+                      {topStrategyMeta.label}
+                    </span>
+                    <span className={styles.strategyRecommendDesc}>
+                      {topStrategyMeta.description}
+                    </span>
+                  </div>
+                  <span
+                    className={styles.strategyRecommendScore}
+                    style={{ color: topStrategyMeta.color }}
+                  >
+                    {topScore.toFixed(1)}
+                    <span className={styles.strategyRecommendScoreUnit}>%</span>
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className={styles.ahpEmptyState}>
+                <span className={styles.ahpEmptyIcon}>🔍</span>
+                <p className={styles.ahpEmptyText}>
+                  No assessment yet. Complete the AHP assessment on the Criticality page to see a recommendation.
+                </p>
+              </div>
+            )}
           </DashboardCard>
 
-          <DashboardCard title="Maintenance Strategy" subtitle="Recommended Action" accent="#1a5c2a">
-            <div className={styles.strategyBadge}>{maintenance.strategy}</div>
-            <StatRow
-              label="Next Inspection"
-              value={maintenance.nextInspectionDays === 0 ? "Today" : String(maintenance.nextInspectionDays)}
-              unit={maintenance.nextInspectionDays === 0 ? undefined : "days"}
-              status={
-                maintenance.nextInspectionDays <= 1
-                  ? "bad"
-                  : maintenance.nextInspectionDays <= 4
-                  ? "warn"
-                  : undefined
-              }
-            />
-            <StatRow label="Last Serviced" value={String(maintenance.lastServicedDaysAgo)} unit="days ago" />
-            <StatRow
-              label="Work Orders Open"
-              value={String(maintenance.openWorkOrders)}
-              status={
-                maintenance.openWorkOrders >= 4
-                  ? "bad"
-                  : maintenance.openWorkOrders >= 2
-                  ? "warn"
-                  : "good"
-              }
-            />
+          {/* Card 2 — Strategy Ranking */}
+          <DashboardCard
+            title="Strategy Ranking"
+            subtitle="All maintenance strategies scored"
+            accent="#4a6b53"
+          >
+            {hasAHP ? (
+              <div className={styles.strategyRankingList}>
+                {rankedStrategies.map((id, index) => {
+                  const meta  = STRATEGY_META[id];
+                  const score = ahpOutputs.scores[id] ?? 0;
+                  const isTop = index === 0;
+                  return (
+                    <div
+                      key={id}
+                      className={`${styles.strategyRankRow} ${isTop ? styles.strategyRankRowTop : ""}`}
+                    >
+                      {/* Rank number */}
+                      <span
+                        className={styles.strategyRankNumber}
+                        style={{ color: isTop ? meta.color : undefined }}
+                      >
+                        {index + 1}
+                      </span>
+
+                      {/* Info + bar */}
+                      <div className={styles.strategyRankInfo}>
+                        <div className={styles.strategyRankMeta}>
+                          <span className={styles.strategyRankIcon}>{meta.icon}</span>
+                          <span
+                            className={styles.strategyRankName}
+                            style={{ color: isTop ? meta.color : undefined }}
+                          >
+                            {meta.label}
+                          </span>
+                          {isTop && (
+                            <span
+                              className={styles.strategyRankBadge}
+                              style={{ backgroundColor: meta.color }}
+                            >
+                              Top
+                            </span>
+                          )}
+                        </div>
+                        <MiniBar value={score} max={maxScore} color={meta.color} />
+                      </div>
+
+                      {/* Score */}
+                      <span
+                        className={styles.strategyRankScore}
+                        style={{ color: meta.color }}
+                      >
+                        {score.toFixed(1)}
+                        <span className={styles.strategyRankScoreUnit}>%</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={styles.ahpEmptyState}>
+                <span className={styles.ahpEmptyIcon}>📊</span>
+                <p className={styles.ahpEmptyText}>
+                  Scores will appear here once the AHP assessment is submitted.
+                </p>
+              </div>
+            )}
           </DashboardCard>
 
         </div>
 
-        {/* ── Column 2 — OEE + MTBF/MTTR + PF Curve ────────────── */}
+        {/* ── Column 2 — OEE + MTBF/MTTR ───────────────────────── */}
         <div className={styles.col}>
 
           {/* OEE Card */}
@@ -215,7 +314,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             accent="#10b981"
             liveTag={hasLiveKPI}
           >
-            {/* Big OEE score */}
             <div className={styles.oeeBigRow}>
               <span className={`${styles.oeeBigValue} ${getOEEStatusClass(liveOEE)}`}>
                 {fmtPct(liveOEE)}
@@ -230,41 +328,30 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
               </div>
             </div>
 
-            {/* OEE overall bar */}
-            <MiniBar value={liveOEE} colorClass={getOEEStatusClass(liveOEE)} />
+            <div className={styles.oeeMainBar}>
+              <MiniBar value={liveOEE} colorClass={getOEEStatusClass(liveOEE)} />
+            </div>
 
             <div className={styles.oeeSubRows}>
-              {/* Availability */}
               <div className={styles.oeeSubRow}>
-                <div className={styles.oeeSubMeta}>
-                  <span className={styles.oeeSubLabel}>Availability</span>
-                  <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveAvailability)}`}>
-                    {fmtPct(liveAvailability)}
-                  </span>
-                </div>
-                <MiniBar value={liveAvailability} colorClass={getOEEStatusClass(liveAvailability)} />
+                <span className={styles.oeeSubLabel}>Availability</span>
+                <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveAvailability)}`}>
+                  {fmtPct(liveAvailability)}
+                </span>
               </div>
 
-              {/* Performance */}
               <div className={styles.oeeSubRow}>
-                <div className={styles.oeeSubMeta}>
-                  <span className={styles.oeeSubLabel}>Performance</span>
-                  <span className={`${styles.oeeSubValue} ${getOEEStatusClass(livePerformance)}`}>
-                    {fmtPct(livePerformance)}
-                  </span>
-                </div>
-                <MiniBar value={livePerformance} colorClass={getOEEStatusClass(livePerformance)} />
+                <span className={styles.oeeSubLabel}>Performance</span>
+                <span className={`${styles.oeeSubValue} ${getOEEStatusClass(livePerformance)}`}>
+                  {fmtPct(livePerformance)}
+                </span>
               </div>
 
-              {/* Quality */}
               <div className={styles.oeeSubRow}>
-                <div className={styles.oeeSubMeta}>
-                  <span className={styles.oeeSubLabel}>Quality</span>
-                  <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveQuality)}`}>
-                    {fmtPct(liveQuality)}
-                  </span>
-                </div>
-                <MiniBar value={liveQuality} colorClass={getOEEStatusClass(liveQuality)} />
+                <span className={styles.oeeSubLabel}>Quality</span>
+                <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveQuality)}`}>
+                  {fmtPct(liveQuality)}
+                </span>
               </div>
             </div>
           </DashboardCard>
@@ -293,7 +380,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
         {/* ── Column 3 — PF Curve + Spare Parts ──────────────── */}
         <div className={styles.col}>
 
-                   {/* PF Curve Card */}
           <DashboardCard title="PF Curve Status" subtitle="Potential-Functional Failure" accent="#f59e0b">
             <StatRow label="P-F Interval" value={String(pfCurve.pfIntervalDays)} unit="days" />
             <StatRow

@@ -1,24 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styles from "./page.module.css";
+import { useAppContext } from "@/app/context/AppContext";
+import type { AHPFactor, AHPStrategyId } from "@/app/context/AppContext";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const FACTORS = [
+const FACTORS: readonly AHPFactor[] = [
   "Cost",
   "Long Term Reliability",
   "Uptime",
   "Utilization of Technology",
-] as const;
-type Factor = (typeof FACTORS)[number];
+];
 
 const STRATEGIES = [
-  { id: "predictive", label: "Predictive Maintenance", color: "#185FA5", icon: "📡" },
-  { id: "preventive", label: "Preventive Maintenance", color: "#27500A", icon: "🔧" },
-  { id: "reactive",   label: "Reactive Maintenance",   color: "#854F0B", icon: "⚠️" },
+  { id: "predictive" as AHPStrategyId, label: "Predictive Maintenance", color: "#185FA5", icon: "📡" },
+  { id: "preventive" as AHPStrategyId, label: "Preventive Maintenance", color: "#27500A", icon: "🔧" },
+  { id: "reactive"   as AHPStrategyId, label: "Reactive Maintenance",   color: "#854F0B", icon: "⚠️" },
 ] as const;
-type StrategyId = (typeof STRATEGIES)[number]["id"];
 
 const SLIDER_STEPS = [9, 7, 5, 3, -3, -5, -7, -9];
 const DEFAULT_COMPARISON_VALUE = -3;
@@ -31,9 +31,9 @@ function makePairs<T extends string>(items: readonly T[]): [T, T][] {
   return pairs;
 }
 
-const FACTOR_PAIRS = makePairs(FACTORS);
-const STRAT_LABELS = STRATEGIES.map((s) => s.label) as [string, string, string];
-const STRAT_PAIRS  = makePairs(STRAT_LABELS);
+const FACTOR_PAIRS  = makePairs(FACTORS);
+const STRAT_LABELS  = STRATEGIES.map((s) => s.label) as [string, string, string];
+const STRAT_PAIRS   = makePairs(STRAT_LABELS);
 
 // ── State initializers ───────────────────────────────────────────────────────
 
@@ -55,7 +55,7 @@ function initCritComparisons(): Record<string, number> {
   return map;
 }
 
-const ALT_DEFAULTS: Record<Factor, Record<string, number>> = {
+const ALT_DEFAULTS: Record<AHPFactor, Record<string, number>> = {
   "Cost": {
     "Predictive Maintenance|Preventive Maintenance": -3,
     "Predictive Maintenance|Reactive Maintenance":   -5,
@@ -77,8 +77,9 @@ const ALT_DEFAULTS: Record<Factor, Record<string, number>> = {
     "Preventive Maintenance|Reactive Maintenance":    3,
   },
 };
-function initAltComparisons(): Record<Factor, Record<string, number>> {
-  const result = {} as Record<Factor, Record<string, number>>;
+
+function initAltComparisons(): Record<AHPFactor, Record<string, number>> {
+  const result = {} as Record<AHPFactor, Record<string, number>>;
   FACTORS.forEach((factor) => {
     result[factor] = {};
     STRAT_PAIRS.forEach(([a, b]) => {
@@ -94,11 +95,11 @@ function initAltComparisons(): Record<Factor, Record<string, number>> {
 function buildMatrix(labels: readonly string[], map: Record<string, number>): number[][] {
   const n = labels.length;
   const M: number[][] = Array.from({ length: n }, () => Array(n).fill(1));
-
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const v = map[`${labels[i]}|${labels[j]}`] ?? DEFAULT_COMPARISON_VALUE;
-      const ratio = v < 0 ? 1 / Math.abs(v) : v;      M[i][j] = ratio;
+      const ratio = v < 0 ? 1 / Math.abs(v) : v;
+      M[i][j] = ratio;
       M[j][i] = 1 / ratio;
     }
   }
@@ -111,7 +112,6 @@ function deriveWeights(M: number[][]): number[] {
   for (let i = 0; i < n; i++)
     for (let j = 0; j < n; j++)
       colSums[j] += M[i][j];
-
   const normalized = M.map((row) => row.map((v, j) => v / colSums[j]));
   return normalized.map((row) => row.reduce((sum, v) => sum + v, 0) / n);
 }
@@ -127,61 +127,43 @@ interface ConsistencyResult {
 
 function computeConsistency(M: number[][], weights: number[]): ConsistencyResult {
   const n = M.length;
-
-  const weightedSum = M.map((row) =>
-    row.reduce((sum, val, j) => sum + val * weights[j], 0)
-  );
-
-  const lambdaValues = weightedSum.map((ws, i) =>
-    weights[i] === 0 ? 0 : ws / weights[i]
-  );
-
+  const weightedSum = M.map((row) => row.reduce((sum, val, j) => sum + val * weights[j], 0));
+  const lambdaValues = weightedSum.map((ws, i) => (weights[i] === 0 ? 0 : ws / weights[i]));
   const lambdaMax = lambdaValues.reduce((sum, v) => sum + v, 0) / n;
   const ci = (lambdaMax - n) / (n - 1);
   const ri = RI_TABLE[n] ?? 0.9;
   const cr = ri === 0 ? 0 : ci / ri;
-
   return { lambdaMax, ci, ri, cr };
 }
 
 function computeAHP(
   critComparisons: Record<string, number>,
-  altComparisons:  Record<Factor, Record<string, number>>
-): {
-  scores:          Record<StrategyId, number>;
-  critWeights:     Record<Factor, number>;
-  localWeights:    Record<Factor, number[]>;
-  consistency:     { criteria: ConsistencyResult } & Record<string, ConsistencyResult>;
-} {
+  altComparisons:  Record<AHPFactor, Record<string, number>>
+) {
   const critMatrix      = buildMatrix(FACTORS, critComparisons);
   const critWtArray     = deriveWeights(critMatrix);
   const critConsistency = computeConsistency(critMatrix, critWtArray);
 
-  const critWeights = {} as Record<Factor, number>;
+  const critWeights = {} as Record<AHPFactor, number>;
   FACTORS.forEach((factor, i) => { critWeights[factor] = critWtArray[i]; });
 
-  const localWeights   = {} as Record<Factor, number[]>;
+  const localWeights   = {} as Record<AHPFactor, number[]>;
   const globalScores   = STRATEGIES.map(() => 0);
   const altConsistency = {} as Record<string, ConsistencyResult>;
 
-FACTORS.forEach((factor) => {
+  FACTORS.forEach((factor) => {
     const altMatrix = buildMatrix(STRAT_LABELS, altComparisons[factor]);
     const lw        = deriveWeights(altMatrix);
-    localWeights[factor]  = lw;
+    localWeights[factor]   = lw;
     altConsistency[factor] = computeConsistency(altMatrix, lw);
-
-    lw.forEach((w, si) => {
-      globalScores[si] += w;
-    });
+    lw.forEach((w, si) => { globalScores[si] += w; });
   });
 
   const totalScore = globalScores.reduce((sum, s) => sum + s, 0);
   globalScores.forEach((_, i) => { globalScores[i] /= totalScore; });
 
-  const scores = {} as Record<StrategyId, number>;
-  STRATEGIES.forEach((s, i) => {
-    scores[s.id] = globalScores[i] * 100;
-  });
+  const scores = {} as Record<AHPStrategyId, number>;
+  STRATEGIES.forEach((s, i) => { scores[s.id] = globalScores[i] * 100; });
 
   return {
     scores,
@@ -190,6 +172,7 @@ FACTORS.forEach((factor) => {
     consistency: { criteria: critConsistency, ...altConsistency },
   };
 }
+
 // ── Label helpers ─────────────────────────────────────────────────────────────
 
 function sliderLabel(value: number): string {
@@ -290,12 +273,31 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function CriticalityPage() {
-  const [critComparisons, setCritComparisons] = useState(initCritComparisons);
-  const [altComparisons,  setAltComparisons]  = useState(initAltComparisons);
-  const [submitted,    setSubmitted]    = useState(false);
-  const [scores,       setScores]       = useState<Record<StrategyId, number>>({} as Record<StrategyId, number>);
-const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Record<Factor, number>);  const [localWeights, setLocalWeights] = useState<Record<Factor, number[]>>({} as Record<Factor, number[]>);
-  const [consistency,  setConsistency]  = useState<{ criteria: ConsistencyResult } & Record<string, ConsistencyResult>>({ criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } });
+  const { ahpInputs, setAhpInputs, ahpOutputs, setAhpOutputs } = useAppContext();
+
+  // ── Seed local state from context (or defaults on first visit) ──────────────
+  const hasPersistedInputs =
+    Object.keys(ahpInputs.critComparisons).length > 0;
+
+  const [critComparisons, setCritComparisons] = useState<Record<string, number>>(
+    hasPersistedInputs ? ahpInputs.critComparisons : initCritComparisons()
+  );
+  const [altComparisons, setAltComparisons] = useState<Record<AHPFactor, Record<string, number>>>(
+    hasPersistedInputs ? ahpInputs.altComparisons : initAltComparisons()
+  );
+
+  // Mirror ahpOutputs into local display state so the page renders correctly
+  // when returning to an already-computed result.
+  const [submitted,    setSubmitted]    = useState(ahpOutputs.submitted);
+  const [scores,       setScores]       = useState(ahpOutputs.scores);
+  const [critWeights,  setCritWeights]  = useState(ahpOutputs.critWeights);
+  const [localWeights, setLocalWeights] = useState(ahpOutputs.localWeights);
+  const [consistency,  setConsistency]  = useState(ahpOutputs.consistency);
+
+  // ── Persist inputs to context whenever they change ──────────────────────────
+  useEffect(() => {
+    setAhpInputs({ critComparisons, altComparisons });
+  }, [critComparisons, altComparisons]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ──
 
@@ -303,7 +305,7 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
     setCritComparisons((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleAltChange(factor: Factor, key: string, value: number) {
+  function handleAltChange(factor: AHPFactor, key: string, value: number) {
     setAltComparisons((prev) => ({
       ...prev,
       [factor]: { ...prev[factor], [key]: value },
@@ -312,23 +314,67 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
 
   function handleSubmit() {
     const result = computeAHP(critComparisons, altComparisons);
+
+    // Determine recommended strategy (highest score)
+    const recommended = (Object.entries(result.scores) as [AHPStrategyId, number][])
+      .sort((a, b) => b[1] - a[1])[0][0];
+
+    // Update local display state
     setScores(result.scores);
     setCritWeights(result.critWeights);
     setLocalWeights(result.localWeights);
     setConsistency(result.consistency);
     setSubmitted(true);
+
+    // Persist outputs to context so DashboardSection can read them
+    setAhpOutputs({
+      submitted:           true,
+      scores:              result.scores,
+      critWeights:         result.critWeights,
+      localWeights:        result.localWeights,
+      consistency:         result.consistency,
+      recommendedStrategy: recommended,
+    });
+
     setTimeout(() => {
       document.getElementById("results-section")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   }
 
   function handleReset() {
-    setCritComparisons(initCritComparisons());
-    setAltComparisons(initAltComparisons());
+    const freshCrit = initCritComparisons();
+    const freshAlt  = initAltComparisons();
+
+    setCritComparisons(freshCrit);
+    setAltComparisons(freshAlt);
     setSubmitted(false);
-    setScores({} as Record<StrategyId, number>);
-    setCritWeights({} as Record<Factor, number>);    setLocalWeights({} as Record<Factor, number[]>);
+    setScores({ predictive: 0, preventive: 0, reactive: 0 });
+    setCritWeights({
+      "Cost": 0, "Long Term Reliability": 0,
+      "Uptime": 0, "Utilization of Technology": 0,
+    });
+    setLocalWeights({
+      "Cost": [], "Long Term Reliability": [],
+      "Uptime": [], "Utilization of Technology": [],
+    });
     setConsistency({ criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } });
+
+    // Clear context state too
+    setAhpInputs({ critComparisons: freshCrit, altComparisons: freshAlt });
+    setAhpOutputs({
+      submitted:           false,
+      scores:              { predictive: 0, preventive: 0, reactive: 0 },
+      critWeights:         {
+        "Cost": 0, "Long Term Reliability": 0,
+        "Uptime": 0, "Utilization of Technology": 0,
+      },
+      localWeights:        {
+        "Cost": [], "Long Term Reliability": [],
+        "Uptime": [], "Utilization of Technology": [],
+      },
+      consistency:         { criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } },
+      recommendedStrategy: null,
+    });
   }
 
   const rankedStrategies = submitted
@@ -337,7 +383,6 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
 
   const topStrategy = rankedStrategies[0];
 
-  // All 5 matrices for the consistency check section
   const consistencyMatrices = submitted ? [
     { label: "Criteria Matrix", key: "criteria", n: 4 },
     ...FACTORS.map((f) => ({ label: `${f} (Alternatives)`, key: f, n: 3 })),
@@ -538,20 +583,19 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
               })}
             </div>
 
-            {/* Criteria weights + CR */}
+            {/* Criteria weights */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>Criteria Weights</h3>
               <div className={styles.weightsGrid}>
-              {FACTORS.map((factor) => (
-                <div key={factor} className={styles.weightItem}>
-                  <span className={styles.weightValue}>
-                    {((critWeights[factor] ?? 0) * 100).toFixed(1)}%
-                  </span>
-                  <span className={styles.weightLabel}>{factor}</span>
-                </div>
+                {FACTORS.map((factor) => (
+                  <div key={factor} className={styles.weightItem}>
+                    <span className={styles.weightValue}>
+                      {((critWeights[factor] ?? 0) * 100).toFixed(1)}%
+                    </span>
+                    <span className={styles.weightLabel}>{factor}</span>
+                  </div>
                 ))}
               </div>
-
             </div>
 
             {/* Local strategy weights per factor */}
@@ -583,9 +627,7 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
               </div>
             </div>
 
-            {/* ══════════════════════════════════════════
-                CONSISTENCY CHECK — one row per matrix
-            ══════════════════════════════════════════ */}
+            {/* Consistency check — all matrices */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>Consistency Check — All Matrices</h3>
               <p className={styles.summaryHint}>
@@ -624,7 +666,7 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
               </div>
             </div>
 
-            {/* Criteria comparison summary table */}
+            {/* Criteria comparison summary */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>Criteria Comparison Summary</h3>
               <div className={styles.summaryTable}>
@@ -641,7 +683,8 @@ const [critWeights, setCritWeights] = useState<Record<Factor, number>>({} as Rec
                       <span className={styles.summaryFactor}>{a}</span>
                       <span className={styles.summaryFactor}>{b}</span>
                       <span className={styles.summaryValue}>
-                      {v > 0 ? `${v} : 1` : `1 : ${Math.abs(v)}`}                      </span>
+                        {v > 0 ? `${v} : 1` : `1 : ${Math.abs(v)}`}
+                      </span>
                       <span className={styles.summaryInterp}>
                         {importanceDescription(a, b, v)}
                       </span>

@@ -47,6 +47,19 @@
   text-transform: uppercase;
 }
 
+.ahpTag {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1a5c2a;
+  background-color: #d6eedd;
+  border: 1px solid #c9d9cc;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* ── Grid ─────────────────────────────────────────────────────────────────── */
 
 .grid {
@@ -184,138 +197,86 @@
 .warn { color: #f59e0b; }
 .bad  { color: #ef4444; }
 
-/* ── Criticality Score card ───────────────────────────────────────────────── */
-
-.scoreDisplay {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  margin-bottom: 0.6rem;
-}
-
-.scoreBig {
-  font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 2.4rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-
-.scoreMax {
-  font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #7a9e84;
-}
-
-.scoreBar {
-  height: 6px;
-  background: #e8f0ea;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 0.6rem;
-}
-
-.scoreBarFill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.scoreLabel {
-  font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: #4a6b53;
-  margin: 0;
-  line-height: 1.4;
-}
-
-/* ── Maintenance Strategy card ────────────────────────────────────────────── */
-
-.strategyBadge {
-  font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #1a5c2a;
-  background: #d6eedd;
-  border: 1px solid #c9d9cc;
-  border-radius: 999px;
-  display: inline-block;
-  padding: 0.28rem 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
 /* ── OEE card ─────────────────────────────────────────────────────────────── */
 
 .oeeBigRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .oeeBigValue {
   font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 2rem;
+  font-size: 2.4rem;
   font-weight: 800;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.04em;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .oeeBenchmarks {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.25rem;
+  gap: 0.3rem;
+  flex-shrink: 0;
 }
 
 .benchmarkChip {
   font-family: "Sora", "Segoe UI", sans-serif;
   font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 0.18rem 0.5rem;
+  letter-spacing: 0.03em;
+  padding: 0.22rem 0.55rem;
   border-radius: 999px;
   white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Wrapper so the main OEE bar has clear breathing room */
+.oeeMainBar {
+  margin-bottom: 0.85rem;
 }
 
 .oeeSubRows {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  margin-top: 0.65rem;
+  gap: 0.65rem;
+  padding-top: 0.1rem;
 }
 
 .oeeSubRow {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.oeeSubMeta {
-  display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #f0f4f1;
+}
+
+.oeeSubRow:last-child {
+  border-bottom: none;
 }
 
 .oeeSubLabel {
   font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.73rem;
   font-weight: 500;
   color: #4a6b53;
+  flex: 1;
+  min-width: 0;
 }
 
 .oeeSubValue {
   font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
-/* ── Mini bar (shared by OEE sub-rows) ───────────────────────────────────── */
+/* ── Mini bar (shared) ────────────────────────────────────────────────────── */
 
 .miniBarTrack {
   height: 5px;
@@ -335,6 +296,181 @@
 .miniBarFill.warn { background: #f59e0b; }
 .miniBarFill.bad  { background: #ef4444; }
 
+/* ── Card 1 — Recommended Strategy banner ─────────────────────────────────── */
+
+.strategyRecommendBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1.5px solid;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.strategyRecommendIcon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.strategyRecommendText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.strategyRecommendName {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.strategyRecommendDesc {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: #4a6b53;
+  line-height: 1.4;
+}
+
+.strategyRecommendScore {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.strategyRecommendScoreUnit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 1px;
+}
+
+/* ── Card 2 — Strategy Ranking list ──────────────────────────────────────── */
+
+.strategyRankingList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.strategyRankRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.strategyRankRowTop {
+  background: #f0f4f1;
+  border-radius: 10px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+}
+
+.strategyRankNumber {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #7a9e84;
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.strategyRankInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.strategyRankMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.strategyRankIcon {
+  font-size: 0.88rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.strategyRankName {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d1f11;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strategyRankBadge {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.strategyRankScore {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  min-width: 44px;
+  text-align: right;
+}
+
+.strategyRankScoreUnit {
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-left: 1px;
+}
+
+/* ── Empty state (AHP not yet submitted) ─────────────────────────────────── */
+
+.ahpEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.ahpEmptyIcon {
+  font-size: 1.8rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.ahpEmptyText {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: #7a9e84;
+  line-height: 1.5;
+  max-width: 220px;
+  margin: 0;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 1024px) {
@@ -342,7 +478,6 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  /* Col 3 (PF Curve + Spare Parts) spans full width as a 2-col sub-grid */
   .col:last-child {
     grid-column: 1 / -1;
     display: grid;
@@ -352,11 +487,14 @@
 }
 
 @media (max-width: 768px) {
+  .dashboardSection {
+    padding: 2rem 5%;
+  }
+
   .grid {
     grid-template-columns: 1fr;
   }
 
-  /* Col 3 reverts to single stacked column on mobile */
   .col:last-child {
     grid-column: auto;
     display: flex;
@@ -366,12 +504,25 @@
   .oeeBigRow {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.4rem;
+    gap: 0.5rem;
+  }
+
+  .oeeBigValue {
+    font-size: 2rem;
   }
 
   .oeeBenchmarks {
     flex-direction: row;
     align-items: center;
     gap: 0.4rem;
+  }
+
+  .strategyRecommendBanner {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .strategyRecommendScore {
+    font-size: 1.2rem;
   }
 }
