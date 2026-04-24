@@ -94,8 +94,8 @@ function ComputedRow({ label, formula, value, valueClass }: ComputedRowProps) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function KPIPage() {
-  // ── Pull inputs + setter from context (persists across navigation) ──
   const {
+    selectedMachineId,
     oeeInputs,  setOeeInputs,
     mtbfInputs, setMtbfInputs,
     mttrInputs, setMttrInputs,
@@ -128,7 +128,9 @@ export default function KPIPage() {
   const numRepairs      = toNum(mttrInputs.numberOfRepairs);
   const mttrValue       = safeDivide(totalRepairTime, numRepairs);
 
-  // ── Sync computed outputs to context whenever they change ──
+  // ── Sync computed outputs to context whenever inputs or selected machine change ──
+  // selectedMachineId is included so outputs are re-written to the new machine's
+  // slot immediately after switching, rather than waiting for the next keystroke.
   useEffect(() => {
     setKpiOutputs({
       oeeScore,
@@ -138,7 +140,12 @@ export default function KPIPage() {
       mtbf: mtbfValue,
       mttr: mttrValue,
     });
-  }, [oeeScore, availability, performance, quality, mtbfValue, mttrValue]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    selectedMachineId,
+    oeeScore, availability, performance, quality,
+    mtbfValue, mttrValue,
+  ]);
 
   // ── Bar width helpers ──
   const barWidth = (val: number | null) =>
@@ -155,6 +162,7 @@ export default function KPIPage() {
             <h1 className={styles.pageTitle}>Equipment Performance KPIs</h1>
             <p className={styles.pageSubtitle}>
               Enter the raw measurements for each KPI. Computed values update in real time as you type.
+              Each machine stores its own independent values.
             </p>
           </div>
           <div className={styles.headerBadges}>

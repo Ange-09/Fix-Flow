@@ -273,12 +273,16 @@ function ComparisonCard({ labelA, labelB, value, onChange }: ComparisonCardProps
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function CriticalityPage() {
-  const { ahpInputs, setAhpInputs, ahpOutputs, setAhpOutputs } = useAppContext();
+  const {
+    selectedMachineId,
+    ahpInputs, setAhpInputs,
+    ahpOutputs, setAhpOutputs,
+  } = useAppContext();
 
-  // ── Seed local state from context (or defaults on first visit) ──────────────
-  const hasPersistedInputs =
-    Object.keys(ahpInputs.critComparisons).length > 0;
+  // ── Determine whether this machine already has saved AHP inputs ─────────────
+  const hasPersistedInputs = Object.keys(ahpInputs.critComparisons).length > 0;
 
+  // ── Local display state ─────────────────────────────────────────────────────
   const [critComparisons, setCritComparisons] = useState<Record<string, number>>(
     hasPersistedInputs ? ahpInputs.critComparisons : initCritComparisons()
   );
@@ -286,20 +290,34 @@ export default function CriticalityPage() {
     hasPersistedInputs ? ahpInputs.altComparisons : initAltComparisons()
   );
 
-  // Mirror ahpOutputs into local display state so the page renders correctly
-  // when returning to an already-computed result.
   const [submitted,    setSubmitted]    = useState(ahpOutputs.submitted);
   const [scores,       setScores]       = useState(ahpOutputs.scores);
   const [critWeights,  setCritWeights]  = useState(ahpOutputs.critWeights);
   const [localWeights, setLocalWeights] = useState(ahpOutputs.localWeights);
   const [consistency,  setConsistency]  = useState(ahpOutputs.consistency);
 
+  // ── Re-seed local state whenever the selected machine changes ───────────────
+  // When the user switches machines, ahpInputs/ahpOutputs from context will
+  // already reflect the new machine's stored data (or defaults if first visit).
+  useEffect(() => {
+    const hasSaved = Object.keys(ahpInputs.critComparisons).length > 0;
+    setCritComparisons(hasSaved ? ahpInputs.critComparisons : initCritComparisons());
+    setAltComparisons(hasSaved  ? ahpInputs.altComparisons  : initAltComparisons());
+    setSubmitted(ahpOutputs.submitted);
+    setScores(ahpOutputs.scores);
+    setCritWeights(ahpOutputs.critWeights);
+    setLocalWeights(ahpOutputs.localWeights);
+    setConsistency(ahpOutputs.consistency);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMachineId]);
+
   // ── Persist inputs to context whenever they change ──────────────────────────
   useEffect(() => {
     setAhpInputs({ critComparisons, altComparisons });
-  }, [critComparisons, altComparisons]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [critComparisons, altComparisons]);
 
-  // ── Handlers ──
+  // ── Handlers ────────────────────────────────────────────────────────────────
 
   function handleCritChange(key: string, value: number) {
     setCritComparisons((prev) => ({ ...prev, [key]: value }));
@@ -315,18 +333,15 @@ export default function CriticalityPage() {
   function handleSubmit() {
     const result = computeAHP(critComparisons, altComparisons);
 
-    // Determine recommended strategy (highest score)
     const recommended = (Object.entries(result.scores) as [AHPStrategyId, number][])
       .sort((a, b) => b[1] - a[1])[0][0];
 
-    // Update local display state
     setScores(result.scores);
     setCritWeights(result.critWeights);
     setLocalWeights(result.localWeights);
     setConsistency(result.consistency);
     setSubmitted(true);
 
-    // Persist outputs to context so DashboardSection can read them
     setAhpOutputs({
       submitted:           true,
       scores:              result.scores,
@@ -349,29 +364,16 @@ export default function CriticalityPage() {
     setAltComparisons(freshAlt);
     setSubmitted(false);
     setScores({ predictive: 0, preventive: 0, reactive: 0 });
-    setCritWeights({
-      "Cost": 0, "Long Term Reliability": 0,
-      "Uptime": 0, "Utilization of Technology": 0,
-    });
-    setLocalWeights({
-      "Cost": [], "Long Term Reliability": [],
-      "Uptime": [], "Utilization of Technology": [],
-    });
+    setCritWeights({ "Cost": 0, "Long Term Reliability": 0, "Uptime": 0, "Utilization of Technology": 0 });
+    setLocalWeights({ "Cost": [], "Long Term Reliability": [], "Uptime": [], "Utilization of Technology": [] });
     setConsistency({ criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } });
 
-    // Clear context state too
     setAhpInputs({ critComparisons: freshCrit, altComparisons: freshAlt });
     setAhpOutputs({
       submitted:           false,
       scores:              { predictive: 0, preventive: 0, reactive: 0 },
-      critWeights:         {
-        "Cost": 0, "Long Term Reliability": 0,
-        "Uptime": 0, "Utilization of Technology": 0,
-      },
-      localWeights:        {
-        "Cost": [], "Long Term Reliability": [],
-        "Uptime": [], "Utilization of Technology": [],
-      },
+      critWeights:         { "Cost": 0, "Long Term Reliability": 0, "Uptime": 0, "Utilization of Technology": 0 },
+      localWeights:        { "Cost": [], "Long Term Reliability": [], "Uptime": [], "Utilization of Technology": [] },
       consistency:         { criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } },
       recommendedStrategy: null,
     });
@@ -388,7 +390,7 @@ export default function CriticalityPage() {
     ...FACTORS.map((f) => ({ label: `${f} (Alternatives)`, key: f, n: 3 })),
   ] : [];
 
-  // ── Render ──
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
@@ -404,6 +406,7 @@ export default function CriticalityPage() {
               then for each criterion, compare the three maintenance strategies.
               Every comparison requires a clear choice — slide left to favour the
               first factor, or right to favour the second. No ties allowed.
+              Each machine stores its own independent assessment.
             </p>
           </div>
           <div className={styles.progressInfo}>
