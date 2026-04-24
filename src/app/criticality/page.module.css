@@ -94,6 +94,162 @@
   line-height: 1;
 }
 
+/* ── Respondent Setup Panel ── */
+.respondentSetup {
+  background-color: #ffffff;
+  border: 1px solid #c9d9cc;
+  border-radius: 14px;
+  padding: 2rem 2rem;
+}
+
+.respondentSetupInner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.25rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.respondentSetupIcon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.respondentSetupText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.respondentSetupTitle {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0d1f11;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.respondentSetupDesc {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+  color: #4a6b53;
+  margin: 0;
+  line-height: 1.6;
+  max-width: 55ch;
+}
+
+.respondentSetupControls {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.respondentCountInput {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0d1f11;
+  background-color: #f7faf7;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  padding: 0.6rem 0.875rem;
+  width: 5rem;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  -moz-appearance: textfield;
+}
+
+.respondentCountInput::-webkit-inner-spin-button,
+.respondentCountInput::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.respondentCountInput:focus {
+  border-color: #1a5c2a;
+  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.1);
+}
+
+.respondentError {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #ef4444;
+  margin: 0;
+}
+
+/* ── Respondent Progress Banner ── */
+.respondentBanner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background-color: #ffffff;
+  border: 1px solid #c9d9cc;
+  border-radius: 12px;
+  padding: 1rem 1.375rem;
+  flex-wrap: wrap;
+}
+
+.respondentBannerLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.respondentBannerLabel {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a9e84;
+}
+
+.respondentBannerCount {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1a5c2a;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.respondentBannerTotal {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #7a9e84;
+}
+
+.respondentProgressBar {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  background-color: #e8f0ea;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.respondentProgressFill {
+  height: 100%;
+  background-color: #1a5c2a;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.respondentBannerHint {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #7a9e84;
+  flex-shrink: 0;
+}
+
 /* ── Scale Legend ── */
 .legendCard {
   background-color: #ffffff;
@@ -250,7 +406,9 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .comparisonCard:focus-within {
@@ -314,7 +472,9 @@
   height: 4px;
   border-radius: 50%;
   background-color: #d1e5d5;
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .trackMarkActive {
@@ -328,7 +488,13 @@
   -webkit-appearance: none;
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(to right, #4a8c5c 0%, #c9d9cc 45%, #c9d9cc 55%, #1a5c2a 100%);
+  background: linear-gradient(
+    to right,
+    #4a8c5c 0%,
+    #c9d9cc 45%,
+    #c9d9cc 55%,
+    #1a5c2a 100%
+  );
   outline: none;
   cursor: pointer;
 }
@@ -341,7 +507,9 @@
   border-radius: 50%;
   background-color: #0d1f11;
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 1.5px #0d1f11, 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 0 0 1.5px #0d1f11,
+    0 2px 6px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: transform 0.1s ease;
 }
@@ -374,7 +542,9 @@
   color: #a8c4af;
   width: 16px;
   text-align: center;
-  transition: color 0.15s ease, font-weight 0.15s ease;
+  transition:
+    color 0.15s ease,
+    font-weight 0.15s ease;
 }
 
 .stepLabelActive {
@@ -411,7 +581,9 @@
   border: 1.5px solid #c9d9cc;
   border-radius: 8px;
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .resetBtn:hover {
@@ -429,7 +601,9 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
   letter-spacing: -0.01em;
 }
 
@@ -440,6 +614,12 @@
 
 .submitBtn:active {
   transform: translateY(0);
+}
+
+.submitBtn:disabled {
+  background-color: #a8d0b2;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* ── Results Section ── */
@@ -471,6 +651,31 @@
   font-size: 0.85rem;
   color: #4a6b53;
   margin: 0;
+}
+
+/* ── Geo Mean Notice ── */
+.geoMeanNotice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.875rem;
+  background-color: #d6eedd;
+  border: 1px solid #a8d0b2;
+  border-radius: 8px;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #1a5c2a;
+  line-height: 1.5;
+}
+
+.geoMeanIcon {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1a5c2a;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 /* Top Recommendation */
@@ -664,7 +869,7 @@
   line-height: 1.3;
 }
 
-/* Summary Table */
+/* ── Summary Cards & Tables ── */
 .summaryCard {
   background-color: #ffffff;
   border: 1px solid #c9d9cc;
@@ -681,6 +886,21 @@
   font-weight: 700;
   color: #0d1f11;
   margin: 0;
+}
+
+.summaryTitleSub {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #7a9e84;
+}
+
+.summaryHint {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  color: #7a9e84;
+  margin: -0.25rem 0 0.75rem 0;
+  font-weight: 400;
 }
 
 .summaryTable {
@@ -710,6 +930,10 @@
   color: #7a9e84;
 }
 
+.summaryTableHeadWide {
+  grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr;
+}
+
 .summaryTableRow {
   display: grid;
   grid-template-columns: 1.5fr 1.5fr 0.5fr 2fr;
@@ -726,6 +950,10 @@
 
 .summaryTableRow:hover {
   background-color: #f7faf7;
+}
+
+.summaryTableRowWide {
+  grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr;
 }
 
 .summaryFactor {
@@ -746,6 +974,125 @@
   font-family: "Sora", "Segoe UI", sans-serif;
   font-size: 0.78rem;
   color: #4a6b53;
+}
+
+/* ── Respondent Breakdown Table ── */
+.respondentBreakdownTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid #edf5ee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.respondentBreakdownHead {
+  display: grid;
+  grid-template-columns: 2fr repeat(auto-fill, minmax(3rem, 1fr));
+  gap: 0;
+  padding: 0.55rem 1rem;
+  background-color: #f7faf7;
+  border-bottom: 1px solid #c9d9cc;
+}
+
+.respondentBreakdownHead span {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a9e84;
+}
+
+.respondentBreakdownRow {
+  display: grid;
+  grid-template-columns: 2fr repeat(auto-fill, minmax(3rem, 1fr));
+  gap: 0;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #f0f7f1;
+  align-items: center;
+  transition: background-color 0.1s ease;
+}
+
+.respondentBreakdownRow:last-child {
+  border-bottom: none;
+}
+
+.respondentBreakdownRow:hover {
+  background-color: #f7faf7;
+}
+
+.respondentBreakdownPair {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #0d1f11;
+}
+
+.respondentBreakdownVal {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4a6b53;
+  text-align: center;
+}
+
+.respondentBreakdownGeo {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1a5c2a;
+  text-align: center;
+}
+
+/* ── Consistency Check Table ── */
+.consistencyTableHead {
+  display: grid;
+  grid-template-columns: 2fr 0.4fr 1fr 1fr 0.6fr 0.8fr 1.1fr;
+  gap: 0;
+  padding: 0.55rem 1rem;
+  background: #f0f4f1;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid #c9d9cc;
+}
+
+.consistencyTableHead span {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4a6b53;
+}
+
+.consistencyTableRow {
+  display: grid;
+  grid-template-columns: 2fr 0.4fr 1fr 1fr 0.6fr 0.8fr 1.1fr;
+  gap: 0;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #f0f4f1;
+  align-items: center;
+}
+
+.consistencyTableRow:last-child {
+  border-bottom: none;
+}
+
+.consistencyResult {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ── Status colours ── */
+.good {
+  color: #10b981;
+}
+.warn {
+  color: #f59e0b;
+}
+.bad {
+  color: #ef4444;
 }
 
 /* ── Recalc row ── */
@@ -794,97 +1141,27 @@
     gap: 0.25rem;
   }
 
-  .directionRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
+  .respondentBanner {
+    gap: 0.75rem;
+  }
 
-.directionSide {
-  font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: #a8c4af;
-  transition: color 0.15s ease;
-  flex: 1;
-}
+  .respondentSetupControls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-.directionRight {
-  text-align: right;
-}
+  .respondentBreakdownHead,
+  .respondentBreakdownRow {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
 
-.directionActive {
-  color: #1a5c2a;
-  font-weight: 700;
-}
+  .consistencyTableHead,
+  .consistencyTableRow {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+  }
 
-.directionValue {
-  font-family: "Sora", "Segoe UI", sans-serif;
-  font-size: 0.85rem;
-  font-weight: 800;
-  color: #0d1f11;
-  min-width: 1.5rem;
-  text-align: center;
-}
-}
-
-
-/* ── Append these rules to your existing page.module.css ── */
-
-/* Consistency check table — 7 columns: Matrix | n | λmax | CI | RI | CR | Result */
-.consistencyTableHead {
-  display: grid;
-  grid-template-columns: 2fr 0.4fr 1fr 1fr 0.6fr 0.8fr 1.1fr;
-  gap: 0;
-  padding: 0.55rem 1rem;
-  background: #f0f4f1;
-  border-radius: 8px 8px 0 0;
-  border-bottom: 1px solid #c9d9cc;
-}
-
-.consistencyTableHead span {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #4a6b53;
-}
-
-.consistencyTableRow {
-  display: grid;
-  grid-template-columns: 2fr 0.4fr 1fr 1fr 0.6fr 0.8fr 1.1fr;
-  gap: 0;
-  padding: 0.65rem 1rem;
-  border-bottom: 1px solid #f0f4f1;
-  align-items: center;
-}
-
-.consistencyTableRow:last-child {
-  border-bottom: none;
-}
-
-.consistencyResult {
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.consistencyResult.good  { color: #10b981; }
-.consistencyResult.warn  { color: #f59e0b; }
-.consistencyResult.bad   { color: #ef4444; }
-
-/* Hint text under a summaryTitle */
-.summaryHint {
-  font-size: 0.78rem;
-  color: #7a9e84;
-  margin: -0.25rem 0 0.75rem 0;
-  font-weight: 400;
-}
-
-.summaryTableHeadWide {
-  grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr;
-}
-
-.summaryTableRowWide {
-  grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr;
+  .consistencyTableHead span:nth-child(n + 5),
+  .consistencyTableRow span:nth-child(n + 5) {
+    display: none;
+  }
 }
