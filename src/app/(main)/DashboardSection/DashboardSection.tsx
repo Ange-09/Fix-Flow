@@ -140,13 +140,12 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const hasAHP     = ahpOutputs.submitted;
 
   // Resolved display values — live context wins, static data is the fallback
-  const liveOEE          = kpiOutputs.oeeScore     !== null ? kpiOutputs.oeeScore * 100     : oee.oee;
-  const liveAvailability = kpiOutputs.availability !== null ? kpiOutputs.availability * 100 : oee.availability;
-  const livePerformance  = kpiOutputs.performance  !== null ? kpiOutputs.performance * 100  : oee.performance;
-  const liveQuality      = kpiOutputs.quality      !== null ? kpiOutputs.quality * 100      : oee.quality;
-  const liveMTBF         = kpiOutputs.mtbf         !== null ? kpiOutputs.mtbf               : reliability.mtbf;
-  const liveMTTR         = kpiOutputs.mttr         !== null ? kpiOutputs.mttr               : reliability.mttr;
-
+const liveOEE          = (kpiOutputs.oeeScore     ?? 0) * 100;
+const liveAvailability = (kpiOutputs.availability ?? 0) * 100;
+const livePerformance  = (kpiOutputs.performance  ?? 0) * 100;
+const liveQuality      = (kpiOutputs.quality      ?? 0) * 100;
+const liveMTBF         = kpiOutputs.mtbf ?? 0;
+const liveMTTR         = kpiOutputs.mttr ?? 0;
   // MTBF/MTTR statuses
   const mtbfStatus: StatusLevel = liveMTBF >= 300 ? "good" : liveMTBF >= 150 ? "warn" : "bad";
   const mttrStatus: StatusLevel = liveMTTR <= 4   ? "good" : liveMTTR <= 8   ? "warn" : "bad";
@@ -307,74 +306,90 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
         {/* ── Column 2 — OEE + MTBF/MTTR ───────────────────────── */}
         <div className={styles.col}>
 
-          {/* OEE Card */}
-          <DashboardCard
-            title="OEE"
-            subtitle="Overall Equipment Effectiveness"
-            accent="#10b981"
-            liveTag={hasLiveKPI}
-          >
-            <div className={styles.oeeBigRow}>
-              <span className={`${styles.oeeBigValue} ${getOEEStatusClass(liveOEE)}`}>
-                {fmtPct(liveOEE)}
-              </span>
-              <div className={styles.oeeBenchmarks}>
-                <span className={styles.benchmarkChip} style={{ backgroundColor: "#fef3c7", color: "#92400e" }}>
-                  65% Acceptable
-                </span>
-                <span className={styles.benchmarkChip} style={{ backgroundColor: "#d1fae5", color: "#065f46" }}>
-                  85% World Class
-                </span>
-              </div>
-            </div>
+{/* OEE Card */}
+<DashboardCard
+  title="OEE"
+  subtitle="Overall Equipment Effectiveness"
+  accent="#10b981"
+>
+  {hasLiveKPI ? (
+    <>
+      <div className={styles.oeeBigRow}>
+        <span className={`${styles.oeeBigValue} ${getOEEStatusClass(liveOEE)}`}>
+          {fmtPct(liveOEE)}
+        </span>
+        <div className={styles.oeeBenchmarks}>
+          <span className={styles.benchmarkChip} style={{ backgroundColor: "#fef3c7", color: "#92400e" }}>
+            65% Acceptable
+          </span>
+          <span className={styles.benchmarkChip} style={{ backgroundColor: "#d1fae5", color: "#065f46" }}>
+            85% World Class
+          </span>
+        </div>
+      </div>
 
-            <div className={styles.oeeMainBar}>
-              <MiniBar value={liveOEE} colorClass={getOEEStatusClass(liveOEE)} />
-            </div>
+      <div className={styles.oeeMainBar}>
+        <MiniBar value={liveOEE} colorClass={getOEEStatusClass(liveOEE)} />
+      </div>
 
-            <div className={styles.oeeSubRows}>
-              <div className={styles.oeeSubRow}>
-                <span className={styles.oeeSubLabel}>Availability</span>
-                <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveAvailability)}`}>
-                  {fmtPct(liveAvailability)}
-                </span>
-              </div>
-
-              <div className={styles.oeeSubRow}>
-                <span className={styles.oeeSubLabel}>Performance</span>
-                <span className={`${styles.oeeSubValue} ${getOEEStatusClass(livePerformance)}`}>
-                  {fmtPct(livePerformance)}
-                </span>
-              </div>
-
-              <div className={styles.oeeSubRow}>
-                <span className={styles.oeeSubLabel}>Quality</span>
-                <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveQuality)}`}>
-                  {fmtPct(liveQuality)}
-                </span>
-              </div>
-            </div>
-          </DashboardCard>
-
-          {/* MTBF / MTTR Card */}
-          <DashboardCard
-            title="MTBF / MTTR"
-            subtitle="Reliability Metrics"
-            accent="#0d3d1f"
-            liveTag={hasLiveKPI}
-          >
-            <StatRow
-              label="Mean Time Between Failures"
-              value={fmtHrs(liveMTBF)}
-              status={mtbfStatus}
-            />
-            <StatRow
-              label="Mean Time To Repair"
-              value={fmtHrs(liveMTTR)}
-              status={mttrStatus}
-            />
-          </DashboardCard>
-
+      <div className={styles.oeeSubRows}>
+        <div className={styles.oeeSubRow}>
+          <span className={styles.oeeSubLabel}>Availability</span>
+          <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveAvailability)}`}>
+            {fmtPct(liveAvailability)}
+          </span>
+        </div>
+        <div className={styles.oeeSubRow}>
+          <span className={styles.oeeSubLabel}>Performance</span>
+          <span className={`${styles.oeeSubValue} ${getOEEStatusClass(livePerformance)}`}>
+            {fmtPct(livePerformance)}
+          </span>
+        </div>
+        <div className={styles.oeeSubRow}>
+          <span className={styles.oeeSubLabel}>Quality</span>
+          <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveQuality)}`}>
+            {fmtPct(liveQuality)}
+          </span>
+        </div>
+      </div>
+    </>
+  ) : (
+    <div className={styles.ahpEmptyState}>
+      <span className={styles.ahpEmptyIcon}>📈</span>
+      <p className={styles.ahpEmptyText}>
+        No KPI data yet. Enter values on the KPI page to see OEE results.
+      </p>
+    </div>
+  )}
+</DashboardCard>
+{/* MTBF / MTTR Card */}
+<DashboardCard
+  title="MTBF / MTTR"
+  subtitle="Reliability Metrics"
+  accent="#0d3d1f"
+>
+  {hasLiveKPI ? (
+    <>
+      <StatRow
+        label="Mean Time Between Failures"
+        value={fmtHrs(liveMTBF)}
+        status={mtbfStatus}
+      />
+      <StatRow
+        label="Mean Time To Repair"
+        value={fmtHrs(liveMTTR)}
+        status={mttrStatus}
+      />
+    </>
+  ) : (
+    <div className={styles.ahpEmptyState}>
+      <span className={styles.ahpEmptyIcon}>🔧</span>
+      <p className={styles.ahpEmptyText}>
+        No reliability data yet. Enter values on the KPI page to see MTBF & MTTR results.
+      </p>
+    </div>
+  )}
+</DashboardCard>
         </div>
 
         {/* ── Column 3 — PF Curve + Spare Parts ──────────────── */}
