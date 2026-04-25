@@ -1,11 +1,15 @@
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type MaintenanceStrategy = "Predictive" | "Preventive" | "Corrective" | "Run-to-Failure";
+export type MaintenanceStrategy =
+  | "Predictive"
+  | "Preventive"
+  | "Corrective"
+  | "Run-to-Failure";
 export type StatusLevel = "good" | "warn" | "bad";
 
 export interface CriticalityData {
-  score: number;         // 0–10
-  label: string;         // e.g. "High Criticality"
+  score: number; // 0–10
+  label: string; // e.g. "High Criticality"
   recommendation: string;
 }
 
@@ -17,16 +21,16 @@ export interface MaintenanceData {
 }
 
 export interface OEEData {
-  availability: number;  // percentage 0–100
+  availability: number; // percentage 0–100
   performance: number;
   quality: number;
-  oee: number;           // computed or stored
+  oee: number; // computed or stored
 }
 
 export interface ReliabilityData {
-  mtbf: number;          // hours
-  mttr: number;          // hours
-  failureRate: number;   // per hour
+  mtbf: number; // hours
+  mttr: number; // hours
+  failureRate: number; // per hour
   availabilityIndex: number; // percentage
 }
 
@@ -40,7 +44,7 @@ export interface PFCurveData {
 export interface KPIData {
   plannedMaintenancePct: number;
   unplannedDowntimeHrsPerMonth: number;
-  maintenanceCostPerMonth: number;   // in PHP
+  maintenanceCostPerMonth: number; // in PHP
   scheduleCompliancePct: number;
 }
 
@@ -55,7 +59,7 @@ export interface Machine {
   id: string;
   name: string;
   description: string;
-  image: string | null;   // null = use placeholder; set to "/images/<file>" when ready
+  image: string | null; // null = use placeholder; set to "/images/<file>" when ready
   criticality: CriticalityData;
   maintenance: MaintenanceData;
   oee: OEEData;
@@ -73,7 +77,7 @@ export const machines: Machine[] = [
     name: "CNC Plasma Cutting Machine",
     description:
       "A computer-controlled plasma cutting machine used for high-speed cutting of electrically conductive metals including steel, aluminum, and stainless steel. Utilizes a high-temperature plasma arc to melt and expel material along programmed cut paths. Monitored for torch wear, gas pressure consistency, and cut quality deviation.",
-    image: null, // TODO: replace with "/images/cnc-plasma.jpg"
+    image: "/images/pcutter.png",
     criticality: {
       score: 8.7,
       label: "High Criticality",
@@ -122,7 +126,7 @@ export const machines: Machine[] = [
     name: "CNC Laser Cutting Machine",
     description:
       "A high-precision CNC laser cutting system capable of cutting and engraving metals, plastics, and composites with sub-millimeter accuracy. Employs a focused CO₂ or fiber laser beam controlled along 2-axis paths. Key maintenance concerns include laser lens cleanliness, beam alignment, cooling system performance, and assist gas purity.",
-    image: null, // TODO: replace with "/images/cnc-laser.jpg"
+    image: "/images/lcutter.png", // TODO: replace with "/images/cnc-laser.jpg"
     criticality: {
       score: 9.1,
       label: "Very High Criticality",
@@ -171,7 +175,7 @@ export const machines: Machine[] = [
     name: "CNC Lathe Machine",
     description:
       "Precision CNC lathe used for turning, facing, and threading operations on cylindrical workpieces. Features an automatic tool changer and real-time spindle load monitoring. Maintenance is condition-based, primarily triggered by vibration threshold exceedances, tool wear indicators, and coolant quality checks.",
-    image: null, // TODO: replace with "/images/cnc-lathe.jpg"
+    image: "/images/lathe.png",
     criticality: {
       score: 7.5,
       label: "Medium-High Criticality",
@@ -220,7 +224,7 @@ export const machines: Machine[] = [
     name: "CNC Milling Machine",
     description:
       "A high-precision computer-controlled milling machine used for cutting and shaping metal and composite materials. Operates at variable spindle speeds and supports 3-axis simultaneous machining. Critical to primary production output and subject to routine predictive maintenance scheduling based on spindle vibration and coolant flow data.",
-    image: null, // TODO: replace with "/images/cnc-mill.jpg"
+    image: "/images/milling.png",
     criticality: {
       score: 8.4,
       label: "High Criticality",
@@ -269,11 +273,12 @@ export const machines: Machine[] = [
     name: "CNC Controller",
     description:
       "The central computing and motion control unit governing all CNC machine operations on the production floor. Processes G-code instructions, manages axis interpolation, and interfaces with servo drives and feedback systems. Maintenance focuses on software integrity, electrical connection quality, cooling fan performance, and backup power reliability.",
-    image: null, // TODO: replace with "/images/cnc-controller.jpg"
+    image: "/images/controller.png",
     criticality: {
       score: 9.5,
       label: "Critical",
-      recommendation: "Immediate proactive maintenance — single point of failure",
+      recommendation:
+        "Immediate proactive maintenance — single point of failure",
     },
     maintenance: {
       strategy: "Preventive",
