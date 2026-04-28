@@ -20,11 +20,12 @@ export default function SparePartsPage() {
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
-        <span className={styles.pageTag}>Spare Parts Management</span>
-        <h1 className={styles.pageTitle}>Spare Parts &amp; PF Curve Monitoring</h1>
+        <span className={styles.pageTag}>Critical Spare Parts</span>
+        <h1 className={styles.pageTitle}>Critical Spare Parts Monitoring</h1>
         <p className={styles.pageSubtitle}>
-          Track spare part conditions using PF Curve analysis. Critical parts are
-          monitored against P-point dates to determine maintenance urgency.
+          PF Curve analysis for critical spare parts. Each part is monitored
+          against its P-point date to determine maintenance urgency and
+          intervention timing before functional failure occurs.
         </p>
       </div>
 

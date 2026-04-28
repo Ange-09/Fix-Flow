@@ -46,9 +46,15 @@
   line-height: 1;
 }
 
-.summaryCard.warn .summaryNum { color: #f59e0b; }
-.summaryCard.orange .summaryNum { color: #f97316; }
-.summaryCard.bad .summaryNum { color: #ef4444; }
+.summaryCard.warn .summaryNum {
+  color: #f59e0b;
+}
+.summaryCard.orange .summaryNum {
+  color: #f97316;
+}
+.summaryCard.bad .summaryNum {
+  color: #ef4444;
+}
 
 .summaryLabel {
   font-size: 0.7rem;
@@ -113,6 +119,7 @@
   border-radius: 16px;
   overflow-x: auto;
   box-shadow: 0 1px 4px rgba(13, 31, 17, 0.04);
+  overflow: visible;
 }
 
 .table {
@@ -137,8 +144,12 @@
   white-space: nowrap;
 }
 
-.th:first-child { border-radius: 16px 0 0 0; }
-.th:last-child { border-radius: 0 16px 0 0; }
+.th:first-child {
+  border-radius: 16px 0 0 0;
+}
+.th:last-child {
+  border-radius: 0 16px 0 0;
+}
 
 .thInner {
   display: flex;
@@ -151,8 +162,90 @@
   opacity: 0.5;
 }
 
+/* ── Info Tooltip ─────────────────────────────────────────────── */
+
+.infoWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.infoIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a9e84;
+  cursor: default;
+  transition: color 0.15s ease;
+  line-height: 1;
+}
+
+.infoWrapper:hover .infoIcon {
+  color: #1a5c2a;
+}
+
+.tooltip {
+  /* hidden by default */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+
+  /* positioning: centered above the icon */
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* sizing */
+  width: 230px;
+  padding: 9px 12px;
+
+  /* appearance */
+  background: #0d1f11;
+  color: #d6eedd;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.55;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(13, 31, 17, 0.22);
+
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  z-index: 100;
+}
+
+/* Arrow pointing down */
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #0d1f11;
+}
+
+.infoWrapper:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
-  .summaryRow { gap: 8px; }
-  .summaryCard { min-width: 80px; padding: 10px 14px; }
-  .filterGroup { gap: 6px; }
+  .summaryRow {
+    gap: 8px;
+  }
+  .summaryCard {
+    min-width: 80px;
+    padding: 10px 14px;
+  }
+  .filterGroup {
+    gap: 6px;
+  }
 }
