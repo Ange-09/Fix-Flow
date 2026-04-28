@@ -217,11 +217,11 @@ function TableBody({
     Normal: 3,
   };
 
-  const filtered = enriched.filter((p) => {
-    if (filterCondition === "All") return true;
-    if (p.classification !== "Critical") return filterCondition === "All";
-    return p.condition === filterCondition;
-  });
+const filtered = enriched.filter((p) => {
+  if (filterCondition === "All") return true;
+  if (p.classification !== "Critical") return false;
+  return p.condition === filterCondition;
+});
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;

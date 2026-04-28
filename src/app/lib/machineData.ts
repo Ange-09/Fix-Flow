@@ -9,6 +9,8 @@
 //   Degrading       → elapsed = 0.75 * pfInterval days ago
 //   Maintenance Trigger → elapsed = 0.90 * pfInterval days ago
 
+export type StatusLevel = "good" | "warn" | "bad";
+
 export interface SparePart {
   id: string;
   name: string;
