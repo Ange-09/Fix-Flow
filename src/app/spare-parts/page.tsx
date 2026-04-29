@@ -20,7 +20,7 @@ export default function SparePartsPage() {
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
-        <span className={styles.pageTag}>Critical Spare Parts</span>
+        <span className={styles.pageTag}>Spare Parts Management</span>
         <h1 className={styles.pageTitle}>Critical Spare Parts Monitoring</h1>
         <p className={styles.pageSubtitle}>
           PF Curve analysis for critical spare parts. Each part is monitored

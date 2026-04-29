@@ -67,6 +67,16 @@ export interface AHPOutputs {
   recommendedStrategy: AHPStrategyId | null;
 }
 
+// ── Spare parts state ─────────────────────────────────────────────────────────
+
+export interface SparePartState {
+  pDate: string;
+  pfInterval: number;
+}
+
+// partId → SparePartState
+export type MachineSparePartsState = Record<string, SparePartState>;
+
 // ── Per-machine state bundles ─────────────────────────────────────────────────
 
 export interface MachineKPIState {
@@ -194,9 +204,22 @@ interface AppContextType {
   ahpOutputs:    AHPOutputs;
   setAhpOutputs: (outputs: AHPOutputs) => void;
 
+  // Spare parts — scoped to selected machine
+  sparePartsState:    MachineSparePartsState;
+  setSparePartState:  (
+    partId: string,
+    field: "pDate" | "pfInterval",
+    value: string | number
+  ) => void;
+  setSparePartsStateForMachine: (
+    machineId: string,
+    state: MachineSparePartsState
+  ) => void;
+
   // Raw per-machine maps (read by DashboardSection to show any machine's data)
-  allKpiStates: Record<string, MachineKPIState>;
-  allAhpStates: Record<string, MachineAHPState>;
+  allKpiStates:        Record<string, MachineKPIState>;
+  allAhpStates:        Record<string, MachineAHPState>;
+  allSparePartsStates: Record<string, MachineSparePartsState>;
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
@@ -206,16 +229,22 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedMachineId, setSelectedMachineId] = useState(DEFAULT_MACHINE_ID);
 
-  // Per-machine KPI state: Record<machineId, MachineKPIState>
+  // Per-machine KPI state
   const [allKpiStates, setAllKpiStates] = useState<Record<string, MachineKPIState>>({});
 
-  // Per-machine AHP state: Record<machineId, MachineAHPState>
+  // Per-machine AHP state
   const [allAhpStates, setAllAhpStates] = useState<Record<string, MachineAHPState>>({});
+
+  // Per-machine spare parts state: Record<machineId, Record<partId, SparePartState>>
+  const [allSparePartsStates, setAllSparePartsStates] = useState<
+    Record<string, MachineSparePartsState>
+  >({});
 
   // ── Helpers to get current machine's slice (falling back to defaults) ──────
 
-  const currentKPI = allKpiStates[selectedMachineId] ?? defaultMachineKPI();
-  const currentAHP = allAhpStates[selectedMachineId] ?? defaultMachineAHP();
+  const currentKPI        = allKpiStates[selectedMachineId]        ?? defaultMachineKPI();
+  const currentAHP        = allAhpStates[selectedMachineId]        ?? defaultMachineAHP();
+  const currentSpareParts = allSparePartsStates[selectedMachineId] ?? {};
 
   // ── KPI setters ──────────────────────────────────────────────────────────
 
@@ -263,6 +292,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, [selectedMachineId]);
 
+  // ── Spare parts setters ───────────────────────────────────────────────────
+
+  // Update a single field for a single part on the currently selected machine
+  const setSparePartState = useCallback(
+    (partId: string, field: "pDate" | "pfInterval", value: string | number) => {
+      setAllSparePartsStates((prev) => {
+        const machineSlice = prev[selectedMachineId] ?? {};
+        const partSlice    = machineSlice[partId]    ?? { pDate: "", pfInterval: 30 };
+        return {
+          ...prev,
+          [selectedMachineId]: {
+            ...machineSlice,
+            [partId]: { ...partSlice, [field]: value },
+          },
+        };
+      });
+    },
+    [selectedMachineId]
+  );
+
+  // Bulk-replace all part states for a given machine (used by SparePartsTable
+  // on machine switch to seed initial values from static data)
+  const setSparePartsStateForMachine = useCallback(
+    (machineId: string, state: MachineSparePartsState) => {
+      setAllSparePartsStates((prev) => ({
+        ...prev,
+        [machineId]: state,
+      }));
+    },
+    []
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -285,9 +346,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ahpOutputs:    currentAHP.ahpOutputs,
         setAhpOutputs,
 
+        // Spare parts — current machine
+        sparePartsState:             currentSpareParts,
+        setSparePartState,
+        setSparePartsStateForMachine,
+
         // Raw maps for cross-machine reads (e.g. dashboard)
         allKpiStates,
         allAhpStates,
+        allSparePartsStates,
       }}
     >
       {children}

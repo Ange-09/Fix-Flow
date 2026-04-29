@@ -140,10 +140,31 @@ interface DashboardSectionProps {
 }
 
 export default function DashboardSection({ machineId }: DashboardSectionProps) {
-  const machine: Machine = getMachineById(machineId ?? DEFAULT_MACHINE_ID)!;
+  const resolvedId = machineId ?? DEFAULT_MACHINE_ID;
+  const machine: Machine = getMachineById(resolvedId)!;
   const { pfCurve, spareParts } = machine;
 
-  const { kpiOutputs, ahpOutputs } = useAppContext();
+  // Read context maps — use resolvedId to get data for the displayed machine,
+  // not necessarily the currently-selected machine (they are always the same
+  // on the dashboard page, but this keeps the component correct by design).
+  const { allKpiStates, allAhpStates, allSparePartsStates } = useAppContext();
+
+  const kpiState = allKpiStates[resolvedId];
+  const ahpState = allAhpStates[resolvedId];
+  const liveSparePartsState = allSparePartsStates[resolvedId] ?? {};
+
+  const kpiOutputs = kpiState?.kpiOutputs ?? {
+    oeeScore: null, availability: null, performance: null,
+    quality: null, mtbf: null, mttr: null,
+  };
+  const ahpOutputs = ahpState?.ahpOutputs ?? {
+    submitted: false,
+    scores: { predictive: 0, preventive: 0, reactive: 0 },
+    critWeights: { "Cost": 0, "Long Term Reliability": 0, "Uptime": 0, "Utilization of Technology": 0 },
+    localWeights: { "Cost": [], "Long Term Reliability": [], "Uptime": [], "Utilization of Technology": [] },
+    consistency: { criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } },
+    recommendedStrategy: null,
+  };
 
   const hasLiveKPI = kpiOutputs.oeeScore !== null;
   const hasAHP     = ahpOutputs.submitted;
@@ -198,7 +219,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     daysToFailure <= 7     ? "bad"  :
     daysToFailure <= 14    ? "warn" : "good";
 
-  // ── Spare Parts — condition summary from spareParts array ────────────────
+  // ── Spare Parts — use live context state, fall back to static defaults ────
   const allParts      = spareParts ?? [];
   const totalParts    = allParts.length;
   const criticalParts = allParts.filter((p) => p.classification === "Critical");
@@ -209,10 +230,16 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   let countTrigger   = 0;
 
   criticalParts.forEach((p) => {
-    if (!p.defaultPDate || !p.defaultPFInterval) { countNormal++; return; }
-    const pd = parseDateString(p.defaultPDate);
+    // Prefer live context state; fall back to static defaults on the part record
+    const liveState = liveSparePartsState[p.id];
+    const pDateStr  = liveState?.pDate      ?? p.defaultPDate;
+    const interval  = liveState?.pfInterval ?? p.defaultPFInterval;
+
+    if (!pDateStr || !interval) { countNormal++; return; }
+    const pd = parseDateString(pDateStr);
     if (!pd) { countNormal++; return; }
-    const cond = getConditionStatus(pd, p.defaultPFInterval);
+
+    const cond = getConditionStatus(pd, interval);
     if      (cond === "Maintenance Trigger") countTrigger++;
     else if (cond === "Degrading Condition") countDegrading++;
     else if (cond === "Early Warning")       countEarlyWarn++;
@@ -446,8 +473,8 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             />
           </DashboardCard>
 
-          {/* Spare Parts Card — condition summary only */}
-          <DashboardCard title="Spare Parts" subtitle="Parts Condition Summary" accent="#7a9e84">
+          {/* Spare Parts Card — live condition summary */}
+          <DashboardCard title="Critical Spare Parts" subtitle="Parts Condition Summary" accent="#7a9e84">
 
             <StatRow label="Total Parts"    value={String(totalParts)} />
             <StatRow label="Critical Parts" value={String(criticalParts.length)} />
