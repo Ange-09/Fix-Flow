@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import styles from "./page.module.css";
 import { useAppContext } from "@/app/context/AppContext";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly" | "annually";
+
+const TIME_FRAME_OPTIONS: { value: TimeFrame; label: string; shortLabel: string; description: string }[] = [
+  { value: "daily",     label: "Daily",     shortLabel: "Day",     description: "Last 24 hours" },
+  { value: "weekly",    label: "Weekly",    shortLabel: "Week",    description: "Last 7 days" },
+  { value: "monthly",   label: "Monthly",   shortLabel: "Month",   description: "Last 30 days" },
+  { value: "quarterly", label: "Quarterly", shortLabel: "Quarter", description: "Last 90 days" },
+  { value: "annually",  label: "Annually",  shortLabel: "Year",    description: "Last 365 days" },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +114,10 @@ export default function KPIPage() {
     setKpiOutputs,
   } = useAppContext();
 
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
+
+  const selectedOption = TIME_FRAME_OPTIONS.find((o) => o.value === timeFrame)!;
+
   // ── OEE Computed ──
   const runTime        = toNum(oeeInputs.runTime);
   const plannedTime    = toNum(oeeInputs.plannedProductionTime);
@@ -128,9 +144,6 @@ export default function KPIPage() {
   const numRepairs      = toNum(mttrInputs.numberOfRepairs);
   const mttrValue       = safeDivide(totalRepairTime, numRepairs);
 
-  // ── Sync computed outputs to context whenever inputs or selected machine change ──
-  // selectedMachineId is included so outputs are re-written to the new machine's
-  // slot immediately after switching, rather than waiting for the next keystroke.
   useEffect(() => {
     setKpiOutputs({
       oeeScore,
@@ -147,9 +160,11 @@ export default function KPIPage() {
     mtbfValue, mttrValue,
   ]);
 
-  // ── Bar width helpers ──
   const barWidth = (val: number | null) =>
     val === null ? "0%" : `${Math.min(val * 100, 100).toFixed(1)}%`;
+
+  // ── Time frame hint helper ──
+  const tfHint = (base: string) => `${base} (${selectedOption.description})`;
 
   return (
     <div className={styles.page}>
@@ -174,6 +189,55 @@ export default function KPIPage() {
         </div>
 
         {/* ══════════════════════════════════════════
+            TIME FRAME SELECTOR
+        ══════════════════════════════════════════ */}
+        <div className={styles.timeFrameCard}>
+          <div className={styles.timeFrameIconWrap}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <div className={styles.timeFrameCardContent}>
+            <p className={styles.timeFrameCardTitle}>Reporting Period</p>
+            <p className={styles.timeFrameCardSubtitle}>
+              Select the time frame that all KPI inputs below are measured over.
+            </p>
+          </div>
+          <div className={styles.timeFrameSelectWrap}>
+            <select
+              className={styles.timeFrameSelect}
+              value={timeFrame}
+              onChange={(e) => setTimeFrame(e.target.value as TimeFrame)}
+            >
+              {TIME_FRAME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} — {option.description}
+                </option>
+              ))}
+            </select>
+            <span className={styles.timeFrameSelectArrow}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        {/* ── Active time frame badge (sticky reminder) ── */}
+        <div className={styles.timeFrameBadgeRow}>
+          <span className={styles.timeFrameActiveBadge}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Reporting period:&nbsp;<strong>{selectedOption.label}</strong>&nbsp;·&nbsp;{selectedOption.description}
+          </span>
+        </div>
+
+        {/* ══════════════════════════════════════════
             OEE CARD
         ══════════════════════════════════════════ */}
         <div className={styles.kpiCard}>
@@ -189,7 +253,6 @@ export default function KPIPage() {
             </div>
           </div>
 
-          {/* OEE score bar */}
           <div className={styles.oeeBarSection}>
             <div className={styles.oeeBarTrack}>
               <div
@@ -227,14 +290,14 @@ export default function KPIPage() {
                   unit="hrs"
                   value={oeeInputs.runTime}
                   onChange={(v) => setOeeInputs({ ...oeeInputs, runTime: v })}
-                  hint="Actual time the machine was running"
+                  hint={tfHint("Actual time the machine was running")}
                 />
                 <InputField
                   label="Planned Production Time"
                   unit="hrs"
                   value={oeeInputs.plannedProductionTime}
                   onChange={(v) => setOeeInputs({ ...oeeInputs, plannedProductionTime: v })}
-                  hint="Scheduled time available for production"
+                  hint={tfHint("Scheduled time available for production")}
                 />
               </div>
               <ComputedRow
@@ -267,14 +330,14 @@ export default function KPIPage() {
                   unit="hrs/unit"
                   value={oeeInputs.idealCycleTime}
                   onChange={(v) => setOeeInputs({ ...oeeInputs, idealCycleTime: v })}
-                  hint="Fastest possible time to produce one unit"
+                  hint={tfHint("Fastest possible time to produce one unit")}
                 />
                 <InputField
                   label="Total Count"
                   unit="units"
                   value={oeeInputs.totalCount}
                   onChange={(v) => setOeeInputs({ ...oeeInputs, totalCount: v })}
-                  hint="Total units produced (good + defective)"
+                  hint={tfHint("Total units produced (good + defective)")}
                 />
               </div>
               <ComputedRow
@@ -307,7 +370,7 @@ export default function KPIPage() {
                   unit="units"
                   value={oeeInputs.goodCount}
                   onChange={(v) => setOeeInputs({ ...oeeInputs, goodCount: v })}
-                  hint="Units that meet quality standards"
+                  hint={tfHint("Units that meet quality standards")}
                 />
                 <InputField
                   label="Total Count"
@@ -355,13 +418,13 @@ export default function KPIPage() {
                     unit="hrs"
                     value={mtbfInputs.totalOperatingTime}
                     onChange={(v) => setMtbfInputs({ ...mtbfInputs, totalOperatingTime: v })}
-                    hint=""
+                    hint={tfHint("Total uptime in the period")}
                   />
                   <InputField
                     label="Number of Failures"
                     value={mtbfInputs.numberOfFailures}
                     onChange={(v) => setMtbfInputs({ ...mtbfInputs, numberOfFailures: v })}
-                    hint=""
+                    hint={tfHint("Total failure events recorded")}
                   />
                 </div>
                 <ComputedRow
@@ -400,13 +463,13 @@ export default function KPIPage() {
                     unit="hrs"
                     value={mttrInputs.totalRepairTime}
                     onChange={(v) => setMttrInputs({ ...mttrInputs, totalRepairTime: v })}
-                    hint="Sum of all time spent on repairs"
+                    hint={tfHint("Sum of all time spent on repairs")}
                   />
                   <InputField
                     label="Number of Repairs"
                     value={mttrInputs.numberOfRepairs}
                     onChange={(v) => setMttrInputs({ ...mttrInputs, numberOfRepairs: v })}
-                    hint="Total repair events in the period"
+                    hint={tfHint("Total repair events in the period")}
                   />
                 </div>
                 <ComputedRow
