@@ -1,7 +1,7 @@
 "use client";
 
 import { getMachineById, DEFAULT_MACHINE_ID, type Machine, type StatusLevel } from "@/app/lib/machineData";
-import { useAppContext } from "@/app/context/AppContext";
+import { useAppContext, TIME_FRAME_OPTIONS } from "@/app/context/AppContext";
 import type { AHPStrategyId } from "@/app/context/AppContext";
 import { getConditionStatus, parseDateString } from "@/app/lib/pfCurveUtils";
 import styles from "./DashboardSection.module.css";
@@ -14,12 +14,14 @@ function DashboardCard({
   accent,
   children,
   liveTag,
+  periodBadge,
 }: {
   title: string;
   subtitle?: string;
   accent?: string;
   children?: React.ReactNode;
   liveTag?: boolean;
+  periodBadge?: string;
 }) {
   return (
     <div className={styles.card}>
@@ -31,7 +33,19 @@ function DashboardCard({
           <h3 className={styles.cardTitle}>{title}</h3>
           {subtitle && <p className={styles.cardSubtitle}>{subtitle}</p>}
         </div>
-        {liveTag && <span className={styles.cardLiveTag}>● Live</span>}
+        <div className={styles.cardHeaderRight}>
+          {periodBadge && (
+            <span className={styles.periodBadge}>
+              {/* Clock icon */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              {periodBadge}
+            </span>
+          )}
+          {liveTag && <span className={styles.cardLiveTag}>● Live</span>}
+        </div>
       </div>
       <div className={styles.cardBody}>{children}</div>
     </div>
@@ -144,9 +158,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const machine: Machine = getMachineById(resolvedId)!;
   const { pfCurve, spareParts } = machine;
 
-  // Read context maps — use resolvedId to get data for the displayed machine,
-  // not necessarily the currently-selected machine (they are always the same
-  // on the dashboard page, but this keeps the component correct by design).
   const { allKpiStates, allAhpStates, allSparePartsStates } = useAppContext();
 
   const kpiState = allKpiStates[resolvedId];
@@ -165,6 +176,13 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     consistency: { criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } },
     recommendedStrategy: null,
   };
+
+  // ── Time frame ────────────────────────────────────────────────────────────
+  // Read the reporting period the user selected on the KPI page for this machine.
+  const timeFrame   = kpiState?.timeFrame ?? "monthly";
+  const tfOption    = TIME_FRAME_OPTIONS.find((o) => o.value === timeFrame)!;
+  // Short label shown on KPI cards, e.g. "Monthly · Last 30 days"
+  const periodLabel = `${tfOption.label} · ${tfOption.description}`;
 
   const hasLiveKPI = kpiOutputs.oeeScore !== null;
   const hasAHP     = ahpOutputs.submitted;
@@ -219,7 +237,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     daysToFailure <= 7     ? "bad"  :
     daysToFailure <= 14    ? "warn" : "good";
 
-  // ── Spare Parts — use live context state, fall back to static defaults ────
+  // ── Spare Parts ───────────────────────────────────────────────────────────
   const allParts      = spareParts ?? [];
   const totalParts    = allParts.length;
   const criticalParts = allParts.filter((p) => p.classification === "Critical");
@@ -230,7 +248,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   let countTrigger   = 0;
 
   criticalParts.forEach((p) => {
-    // Prefer live context state; fall back to static defaults on the part record
     const liveState = liveSparePartsState[p.id];
     const pDateStr  = liveState?.pDate      ?? p.defaultPDate;
     const interval  = liveState?.pfInterval ?? p.defaultPFInterval;
@@ -355,7 +372,12 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
         {/* ── Column 2 — OEE + MTBF/MTTR ───────────────────────── */}
         <div className={styles.col}>
 
-          <DashboardCard title="OEE" subtitle="Overall Equipment Effectiveness" accent="#10b981">
+          <DashboardCard
+            title="OEE"
+            subtitle="Overall Equipment Effectiveness"
+            accent="#10b981"
+            periodBadge={hasLiveKPI ? periodLabel : undefined}
+          >
             {hasLiveKPI ? (
               <>
                 <div className={styles.oeeBigRow}>
@@ -405,7 +427,12 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             )}
           </DashboardCard>
 
-          <DashboardCard title="MTBF / MTTR" subtitle="Reliability Metrics" accent="#0d3d1f">
+          <DashboardCard
+            title="MTBF / MTTR"
+            subtitle="Reliability Metrics"
+            accent="#0d3d1f"
+            periodBadge={hasLiveKPI ? periodLabel : undefined}
+          >
             {hasLiveKPI ? (
               <>
                 <StatRow label="Mean Time Between Failures" value={fmtHrs(liveMTBF)} status={mtbfStatus} />
@@ -426,7 +453,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
         {/* ── Column 3 — PF Curve + Spare Parts ──────────────── */}
         <div className={styles.col}>
 
-          {/* PF Curve Card */}
           <DashboardCard title="PF Curve Status" subtitle="Potential-Functional Failure" accent="#f59e0b">
 
             <div className={styles.pfConditionRow}>
@@ -473,7 +499,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             />
           </DashboardCard>
 
-          {/* Spare Parts Card — live condition summary */}
           <DashboardCard title="Critical Spare Parts" subtitle="Parts Condition Summary" accent="#7a9e84">
 
             <StatRow label="Total Parts"    value={String(totalParts)} />

@@ -667,3 +667,34 @@
   position: absolute;
   transform: translateX(-50%);
 }
+
+/* ── Add these rules to DashboardSection.module.css ── */
+
+/* Wraps liveTag + periodBadge on the right side of the card header */
+.cardHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Reporting period badge shown on KPI cards */
+.periodBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border: 1px solid #b8d9c2;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.periodBadge svg {
+  flex-shrink: 0;
+}

@@ -34,6 +34,23 @@ export interface KPIOutputs {
   mttr:         number | null;
 }
 
+// ── Time frame ───────────────────────────────────────────────────────────────
+
+export type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly" | "annually";
+
+export const TIME_FRAME_OPTIONS: {
+  value: TimeFrame;
+  label: string;
+  shortLabel: string;
+  description: string;
+}[] = [
+  { value: "daily",     label: "Daily",     shortLabel: "Day",     description: "Last 24 hours" },
+  { value: "weekly",    label: "Weekly",    shortLabel: "Week",    description: "Last 7 days"   },
+  { value: "monthly",   label: "Monthly",   shortLabel: "Month",   description: "Last 30 days"  },
+  { value: "quarterly", label: "Quarterly", shortLabel: "Quarter", description: "Last 90 days"  },
+  { value: "annually",  label: "Annually",  shortLabel: "Year",    description: "Last 365 days" },
+];
+
 // ── AHP input shapes ─────────────────────────────────────────────────────────
 
 export type AHPFactor =
@@ -84,6 +101,7 @@ export interface MachineKPIState {
   mtbfInputs: MTBFInputs;
   mttrInputs: MTTRInputs;
   kpiOutputs: KPIOutputs;
+  timeFrame:  TimeFrame;          // ← added
 }
 
 export interface MachineAHPState {
@@ -157,6 +175,7 @@ function defaultMachineKPI(): MachineKPIState {
     mtbfInputs: { ...DEFAULT_MTBF_INPUTS },
     mttrInputs: { ...DEFAULT_MTTR_INPUTS },
     kpiOutputs: { ...DEFAULT_KPI_OUTPUTS },
+    timeFrame:  "monthly",                  // ← default period
   };
 }
 
@@ -198,6 +217,10 @@ interface AppContextType {
   kpiOutputs:    KPIOutputs;
   setKpiOutputs: (outputs: KPIOutputs) => void;
 
+  // Time frame — scoped to selected machine
+  timeFrame:    TimeFrame;
+  setTimeFrame: (tf: TimeFrame) => void;
+
   // AHP — scoped to selected machine
   ahpInputs:     AHPInputs;
   setAhpInputs:  (inputs: AHPInputs) => void;
@@ -229,13 +252,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedMachineId, setSelectedMachineId] = useState(DEFAULT_MACHINE_ID);
 
-  // Per-machine KPI state
+  // Per-machine KPI state (now includes timeFrame)
   const [allKpiStates, setAllKpiStates] = useState<Record<string, MachineKPIState>>({});
 
   // Per-machine AHP state
   const [allAhpStates, setAllAhpStates] = useState<Record<string, MachineAHPState>>({});
 
-  // Per-machine spare parts state: Record<machineId, Record<partId, SparePartState>>
+  // Per-machine spare parts state
   const [allSparePartsStates, setAllSparePartsStates] = useState<
     Record<string, MachineSparePartsState>
   >({});
@@ -276,6 +299,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, [selectedMachineId]);
 
+  // ── Time frame setter ─────────────────────────────────────────────────────
+
+  const setTimeFrame = useCallback((tf: TimeFrame) => {
+    setAllKpiStates((prev) => ({
+      ...prev,
+      [selectedMachineId]: { ...(prev[selectedMachineId] ?? defaultMachineKPI()), timeFrame: tf },
+    }));
+  }, [selectedMachineId]);
+
   // ── AHP setters ──────────────────────────────────────────────────────────
 
   const setAhpInputs = useCallback((inputs: AHPInputs) => {
@@ -294,7 +326,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Spare parts setters ───────────────────────────────────────────────────
 
-  // Update a single field for a single part on the currently selected machine
   const setSparePartState = useCallback(
     (partId: string, field: "pDate" | "pfInterval", value: string | number) => {
       setAllSparePartsStates((prev) => {
@@ -312,8 +343,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [selectedMachineId]
   );
 
-  // Bulk-replace all part states for a given machine (used by SparePartsTable
-  // on machine switch to seed initial values from static data)
   const setSparePartsStateForMachine = useCallback(
     (machineId: string, state: MachineSparePartsState) => {
       setAllSparePartsStates((prev) => ({
@@ -339,6 +368,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMttrInputs,
         kpiOutputs:    currentKPI.kpiOutputs,
         setKpiOutputs,
+
+        // Time frame — current machine
+        timeFrame:    currentKPI.timeFrame,
+        setTimeFrame,
 
         // AHP — current machine
         ahpInputs:     currentAHP.ahpInputs,

@@ -1,20 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import styles from "./page.module.css";
-import { useAppContext } from "@/app/context/AppContext";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type TimeFrame = "daily" | "weekly" | "monthly" | "quarterly" | "annually";
-
-const TIME_FRAME_OPTIONS: { value: TimeFrame; label: string; shortLabel: string; description: string }[] = [
-  { value: "daily",     label: "Daily",     shortLabel: "Day",     description: "Last 24 hours" },
-  { value: "weekly",    label: "Weekly",    shortLabel: "Week",    description: "Last 7 days" },
-  { value: "monthly",   label: "Monthly",   shortLabel: "Month",   description: "Last 30 days" },
-  { value: "quarterly", label: "Quarterly", shortLabel: "Quarter", description: "Last 90 days" },
-  { value: "annually",  label: "Annually",  shortLabel: "Year",    description: "Last 365 days" },
-];
+import { useAppContext, TIME_FRAME_OPTIONS, TimeFrame } from "@/app/context/AppContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -112,9 +100,8 @@ export default function KPIPage() {
     mtbfInputs, setMtbfInputs,
     mttrInputs, setMttrInputs,
     setKpiOutputs,
+    timeFrame,  setTimeFrame,
   } = useAppContext();
-
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("monthly");
 
   const selectedOption = TIME_FRAME_OPTIONS.find((o) => o.value === timeFrame)!;
 
