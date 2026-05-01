@@ -1,0 +1,486 @@
+/* app/spare-parts/page.module.css */
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  background: #f0f4f1;
+  padding: 2rem 2.5rem 4rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+/* ── Page header ─────────────────────────────────────────────────────────── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.pageTag {
+  display: inline-block;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.75rem;
+  width: fit-content;
+}
+
+.pageTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0d1f11;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #4a6b53;
+  margin: 0;
+  max-width: 520px;
+}
+
+/* ── Controls row ────────────────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.selectWrapper {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.select {
+  appearance: none;
+  background: #ffffff;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  padding: 0.55rem 2.4rem 0.55rem 0.9rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #0d1f11;
+  cursor: pointer;
+  min-width: 240px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #1a5c2a;
+  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.1);
+}
+
+.selectArrow {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: #4a6b53;
+  pointer-events: none;
+}
+
+.searchInput {
+  flex: 1 1 220px;
+  background: #ffffff;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+  color: #0d1f11;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  min-width: 200px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #1a5c2a;
+  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.1);
+}
+
+.searchInput::placeholder {
+  color: #7a9e84;
+}
+
+/* ── Summary pills ───────────────────────────────────────────────────────── */
+.summaryRow {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.summaryPill {
+  background: #f7faf7;
+  border: 1px solid #c9d9cc;
+  border-radius: 10px;
+  padding: 0.6rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.summaryNum {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0d1f11;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #4a6b53;
+}
+
+.pillGood .summaryNum {
+  color: #10b981;
+}
+.pillWarn .summaryNum {
+  color: #f59e0b;
+}
+.pillBad .summaryNum {
+  color: #ef4444;
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+.legend {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #4a6b53;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotGood {
+  background: #10b981;
+}
+.dotWarn {
+  background: #f59e0b;
+}
+.dotBad {
+  background: #ef4444;
+}
+
+/* ── Table wrapper ───────────────────────────────────────────────────────── */
+.tableWrapper {
+  background: #f7faf7;
+  border: 1px solid #c9d9cc;
+  border-radius: 14px;
+  overflow-x: auto;
+  box-shadow: 0 1px 4px rgba(13, 31, 17, 0.04);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 780px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.table thead tr {
+  background: #e8f0ea;
+  border-bottom: 1.5px solid #c9d9cc;
+}
+
+.table th {
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #1a5c2a;
+  padding: 0.75rem 0.85rem;
+  white-space: nowrap;
+  text-align: left;
+  vertical-align: bottom;
+}
+
+.thNum,
+.thStock,
+.thStatus {
+  text-align: center;
+}
+
+.thHint {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #7a9e84;
+  margin-top: 0.15rem;
+}
+
+/* ── Body rows ───────────────────────────────────────────────────────────── */
+.row {
+  border-bottom: 1px solid #e8f0ea;
+  transition: background 0.12s;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: #f0f4f1;
+}
+
+/* Row highlight by status */
+.row_bad {
+  background: rgba(239, 68, 68, 0.045);
+}
+
+.row_bad:hover {
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.row_warn {
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.row_warn:hover {
+  background: rgba(245, 158, 11, 0.07);
+}
+
+.row_good {
+  background: transparent;
+}
+
+/* ── Cells ───────────────────────────────────────────────────────────────── */
+.table td {
+  padding: 0.6rem 0.85rem;
+  color: #0d1f11;
+  vertical-align: middle;
+}
+
+.tdItem {
+  font-weight: 600;
+  color: #0d1f11;
+  white-space: nowrap;
+}
+
+.tdPart {
+  font-family: "Sora", monospace;
+  font-size: 0.78rem;
+  color: #4a6b53;
+  white-space: nowrap;
+}
+
+.tdSpec {
+  font-size: 0.78rem;
+  color: #4a6b53;
+  white-space: nowrap;
+}
+
+.tdNum,
+.tdStock {
+  text-align: center;
+}
+
+/* ── Editable input cells ────────────────────────────────────────────────── */
+.cellInput {
+  width: 60px;
+  text-align: center;
+  background: #ffffff;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0d1f11;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  -moz-appearance: textfield;
+}
+
+.cellInput::-webkit-outer-spin-button,
+.cellInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cellInput:focus {
+  outline: none;
+  border-color: #1a5c2a;
+  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.1);
+}
+
+.stockInput {
+  width: 72px;
+}
+
+/* Stock input color by status */
+.stockInput_bad {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.04);
+  color: #ef4444;
+}
+
+.stockInput_bad:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.stockInput_warn {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.04);
+  color: #b45309;
+}
+
+.stockInput_warn:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
+.stockInput_good {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.04);
+  color: #059669;
+}
+
+.stockInput_good:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+/* ── ROP badge ───────────────────────────────────────────────────────────── */
+.tdRop {
+  text-align: center;
+}
+
+.ropBadge {
+  display: inline-block;
+  background: #e8f0ea;
+  border: 1px solid #c9d9cc;
+  border-radius: 6px;
+  padding: 0.28rem 0.55rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #1a5c2a;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* ── Status chip ─────────────────────────────────────────────────────────── */
+.tdStatus {
+  text-align: center;
+}
+
+.statusChip {
+  display: inline-block;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.7rem;
+  white-space: nowrap;
+}
+
+.chip_good {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.chip_warn {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.chip_bad {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ── Empty row ───────────────────────────────────────────────────────────── */
+.emptyRow {
+  text-align: center;
+  color: #7a9e84;
+  font-size: 0.85rem;
+  padding: 2.5rem 1rem !important;
+}
+
+/* ── Formula note ────────────────────────────────────────────────────────── */
+.formulaNote {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: #7a9e84;
+  font-weight: 400;
+}
+
+.formulaNote strong {
+  font-weight: 700;
+  color: #4a6b53;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .pageTitle {
+    font-size: 1.2rem;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  .select {
+    min-width: 100%;
+  }
+
+  .summaryRow {
+    gap: 0.5rem;
+  }
+
+  .legend {
+    gap: 0.75rem;
+  }
+}
