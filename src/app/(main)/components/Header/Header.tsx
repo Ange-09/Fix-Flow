@@ -23,7 +23,7 @@ export default function Header() {
   }, [menuOpen]);
 
   const navItems = [
-    { href: "/", label: "Dashboard" },
+    { href: "/dashboard", label: "Dashboard" },
     { href: "/criticality", label: "Criticality" },
     { href: "/kpi", label: "KPI" },
     { href: "/spare-parts", label: "Spare Parts" },
