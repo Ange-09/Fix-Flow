@@ -73,7 +73,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-    height: 100%;
+  height: 100%;
   justify-content: space-between;
 }
 
@@ -86,8 +86,8 @@
   box-shadow: 0 1px 4px rgba(13, 31, 17, 0.04);
   overflow: hidden;
   transition: box-shadow 0.18s ease;
-  flex: 1;            
-  display: flex;       
+  flex: 1;
+  display: flex;
   flex-direction: column;
 }
 
@@ -199,9 +199,15 @@
 
 /* ── Status colours ───────────────────────────────────────────────────────── */
 
-.good { color: #10b981; }
-.warn { color: #f59e0b; }
-.bad  { color: #ef4444; }
+.good {
+  color: #10b981;
+}
+.warn {
+  color: #f59e0b;
+}
+.bad {
+  color: #ef4444;
+}
 
 /* ── OEE card ─────────────────────────────────────────────────────────────── */
 
@@ -298,9 +304,15 @@
   background: #1a5c2a;
 }
 
-.miniBarFill.good { background: #10b981; }
-.miniBarFill.warn { background: #f59e0b; }
-.miniBarFill.bad  { background: #ef4444; }
+.miniBarFill.good {
+  background: #10b981;
+}
+.miniBarFill.warn {
+  background: #f59e0b;
+}
+.miniBarFill.bad {
+  background: #ef4444;
+}
 
 /* ── Card 1 — Recommended Strategy banner ─────────────────────────────────── */
 
@@ -578,7 +590,7 @@
 
 /* Label */
 .sparePartsConditionLabel {
-  font-size: .6rem; /* slightly smaller */
+  font-size: 0.6rem; /* slightly smaller */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -697,4 +709,152 @@
 
 .periodBadge svg {
   flex-shrink: 0;
+}
+
+/* ── ADD THESE RULES TO DashboardSection.module.css ────────────────────────── */
+
+/* ── Clickable card ──────────────────────────────────────────────────────────
+   Add .cardClickable to your existing .card rule block.
+   The card already has a box-shadow transition — we just layer on cursor +
+   a slightly deeper lift on hover. ─────────────────────────────────────────── */
+
+.cardClickable {
+  cursor: pointer;
+  /* inherits all .card styles — only overrides below */
+}
+
+.cardClickable:hover {
+  box-shadow: 0 6px 20px rgba(13, 31, 17, 0.1);
+  transform: translateY(-1px);
+}
+
+.cardClickable:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(13, 31, 17, 0.07);
+}
+
+.cardClickable:focus-visible {
+  outline: 2px solid #1a5c2a;
+  outline-offset: 2px;
+}
+
+/* Arrow icon shown in card header when the card has an href */
+.cardNavArrow {
+  display: flex;
+  align-items: center;
+  color: #7a9e84;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  flex-shrink: 0;
+}
+
+.cardClickable:hover .cardNavArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Consumables card ────────────────────────────────────────────────────────  */
+
+.consumablesTotalRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.consumablesTotalLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #4a6b53;
+}
+
+.consumablesTotalValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0d1f11;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* Stacked segmented bar */
+.consumablesStackedBar {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e8f0ea;
+  margin-bottom: 1rem;
+  gap: 2px;
+}
+
+.consumablesStackedSegment {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* Breakdown rows */
+.consumablesBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.consumablesBreakdownRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #f0f4f1;
+}
+
+.consumablesBreakdownRow:last-child {
+  border-bottom: none;
+}
+
+.consumablesBreakdownLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.consumablesDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.consumablesBreakdownLabel {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #4a6b53;
+}
+
+.consumablesBreakdownRight {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.consumablesBreakdownCount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: right;
+}
+
+.consumablesBreakdownPct {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #7a9e84;
+  min-width: 30px;
+  text-align: right;
 }

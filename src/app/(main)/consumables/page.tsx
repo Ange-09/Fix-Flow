@@ -3,10 +3,8 @@
 // app/spare-parts/page.tsx
 // Reads selectedMachineId from AppContext so the table always
 // reflects the machine chosen in UpperSection on the home page.
-//
-// ID mapping: machineData.ts uses "cnc-plasma" / "cnc-laser" / etc.
-//             sparePartsData.ts uses "plasma-cutter" / "laser-cutter" / etc.
-// The MACHINE_ID_MAP below bridges the two without modifying either file.
+// All editable fields (d, L, SS, currentStock) are persisted in
+// AppContext via setSparePartState — no local override state.
 
 import { useMemo, useState } from "react";
 import styles from "./page.module.css";
@@ -19,17 +17,16 @@ import {
   type StockStatus,
 } from "@/app/lib/sparePartsData";
 
-// ─── ID bridge: machineData id → sparePartsData machineId ─────────────────────
+// ─── ID bridge: machineData id → sparePartsData machineId ────────────────────
 const MACHINE_ID_MAP: Record<string, string> = {
   "cnc-plasma": "plasma-cutter",
   "cnc-laser": "laser-cutter",
   "cnc-lathe": "lathe-machine",
   "cnc-milling": "milling-machine",
-  // cnc-controller has no spare parts entry — falls back to empty array
   "cnc-controller": "cnc-controller",
 };
 
-// ─── Display labels per sparePartsData machineId ──────────────────────────────
+// ─── Display labels per sparePartsData machineId ─────────────────────────────
 const MACHINE_LABELS: Record<string, string> = {
   "plasma-cutter": "CNC Plasma Cutting Machine",
   "laser-cutter": "CNC Laser Cutting Machine",
@@ -38,7 +35,7 @@ const MACHINE_LABELS: Record<string, string> = {
   "cnc-controller": "CNC Controller",
 };
 
-// ─── Spec column label per sparePartsData machineId ───────────────────────────
+// ─── Spec column label per sparePartsData machineId ──────────────────────────
 const SPEC_LABEL: Record<string, string> = {
   "plasma-cutter": "Ampere",
   "laser-cutter": "Size",
@@ -47,38 +44,35 @@ const SPEC_LABEL: Record<string, string> = {
   "cnc-controller": "Type",
 };
 
-// ─── Editable row fields ──────────────────────────────────────────────────────
-type EditableFields = {
-  d: number;
-  L: number;
-  SS: number;
-  currentStock: number;
-};
-type Overrides = Record<string, Partial<EditableFields>>;
+// ─── Editable row fields (must match SparePartState optional fields) ──────────
+type EditableFields = "d" | "L" | "SS" | "currentStock";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SparePartsPage() {
-  // Global machine selection from context
-  const { selectedMachineId } = useAppContext();
+  const { selectedMachineId, sparePartsState, setSparePartState } =
+    useAppContext();
 
-  // Map the global ID to the sparePartsData namespace
   const sparesMachineId =
     MACHINE_ID_MAP[selectedMachineId] ?? selectedMachineId;
 
-  const [overrides, setOverrides] = useState<Overrides>({});
   const [search, setSearch] = useState("");
 
-  // Clear search when machine changes
   const machineLabel = MACHINE_LABELS[sparesMachineId] ?? sparesMachineId;
   const specLabel = SPEC_LABEL[sparesMachineId] ?? "Spec";
 
-  // Merge base data with any user edits
+  // ── Merge base data with any context-persisted edits ──────────────────────
   const rows = useMemo(() => {
-    return getSparePartsByMachine(sparesMachineId).map((part) => ({
-      ...part,
-      ...(overrides[part.id] ?? {}),
-    }));
-  }, [sparesMachineId, overrides]);
+    return getSparePartsByMachine(sparesMachineId).map((part) => {
+      const saved = sparePartsState[part.id] ?? {};
+      return {
+        ...part,
+        d: saved.d ?? part.d,
+        L: saved.L ?? part.L,
+        SS: saved.SS ?? part.SS,
+        currentStock: saved.currentStock ?? part.currentStock,
+      };
+    });
+  }, [sparesMachineId, sparePartsState]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -91,7 +85,7 @@ export default function SparePartsPage() {
     );
   }, [rows, search]);
 
-  // Summary counts
+  // ── Summary counts ────────────────────────────────────────────────────────
   const summary = useMemo(() => {
     let good = 0,
       warn = 0,
@@ -106,13 +100,11 @@ export default function SparePartsPage() {
     return { good, warn, bad, total: rows.length };
   }, [rows]);
 
-  function handleEdit(id: string, field: keyof EditableFields, raw: string) {
+  // ── Edit handler — writes directly to context ─────────────────────────────
+  function handleEdit(id: string, field: EditableFields, raw: string) {
     const val = parseFloat(raw);
     if (isNaN(val) || val < 0) return;
-    setOverrides((prev) => ({
-      ...prev,
-      [id]: { ...(prev[id] ?? {}), [field]: val },
-    }));
+    setSparePartState(id, field, val);
   }
 
   return (
@@ -124,55 +116,85 @@ export default function SparePartsPage() {
           <h1 className={styles.pageTitle}>Consumable Parts Inventory</h1>
           <p className={styles.pageSubtitle}>
             Monitor stock levels and reorder points for consumable spare parts
-            across all machines. Showing: <strong>{machineLabel}</strong>
+            across all machines.{" "}
+            <span className={styles.machineHighlight}>
+              Showing: {machineLabel}
+            </span>
           </p>
         </div>
       </div>
 
-      {/* ── Search row ── */}
+      {/* ── Summary cards ── */}
+      <div className={styles.summaryGrid}>
+        <div className={styles.summaryCard}>
+          <span className={styles.summaryCardNum}>{summary.total}</span>
+          <span className={styles.summaryCardLabel}>Total Parts</span>
+          <div className={`${styles.summaryCardBar} ${styles.barNeutral}`} />
+        </div>
+        <div className={`${styles.summaryCard} ${styles.cardGood}`}>
+          <span className={styles.summaryCardNum}>{summary.good}</span>
+          <span className={styles.summaryCardLabel}>Sufficient</span>
+          <div className={`${styles.summaryCardBar} ${styles.barGood}`} />
+        </div>
+        <div className={`${styles.summaryCard} ${styles.cardWarn}`}>
+          <span className={styles.summaryCardNum}>{summary.warn}</span>
+          <span className={styles.summaryCardLabel}>Near ROP</span>
+          <div className={`${styles.summaryCardBar} ${styles.barWarn}`} />
+        </div>
+        <div className={`${styles.summaryCard} ${styles.cardBad}`}>
+          <span className={styles.summaryCardNum}>{summary.bad}</span>
+          <span className={styles.summaryCardLabel}>Reorder Now</span>
+          <div className={`${styles.summaryCardBar} ${styles.barBad}`} />
+        </div>
+      </div>
+
+      {/* ── Controls row ── */}
       <div className={styles.controls}>
-        <input
-          className={styles.searchInput}
-          placeholder="Search item, part number…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        <div className={styles.searchWrapper}>
+          <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="none">
+            <circle
+              cx="8.5"
+              cy="8.5"
+              r="5.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <path
+              d="M13 13l3.5 3.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          <input
+            className={styles.searchInput}
+            placeholder="Search item name, part number, or spec…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              className={styles.searchClear}
+              onClick={() => setSearch("")}
+            >
+              ×
+            </button>
+          )}
+        </div>
 
-      {/* ── Summary pills ── */}
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryPill}>
-          <span className={styles.summaryNum}>{summary.total}</span>
-          <span className={styles.summaryLabel}>Total Parts</span>
+        <div className={styles.legend}>
+          <span className={styles.legendItem}>
+            <span className={`${styles.legendDot} ${styles.dotGood}`} />
+            &gt; 1.2× ROP
+          </span>
+          <span className={styles.legendItem}>
+            <span className={`${styles.legendDot} ${styles.dotWarn}`} />
+            Near ROP
+          </span>
+          <span className={styles.legendItem}>
+            <span className={`${styles.legendDot} ${styles.dotBad}`} />≤ ROP
+          </span>
         </div>
-        <div className={`${styles.summaryPill} ${styles.pillGood}`}>
-          <span className={styles.summaryNum}>{summary.good}</span>
-          <span className={styles.summaryLabel}>Sufficient</span>
-        </div>
-        <div className={`${styles.summaryPill} ${styles.pillWarn}`}>
-          <span className={styles.summaryNum}>{summary.warn}</span>
-          <span className={styles.summaryLabel}>Near ROP</span>
-        </div>
-        <div className={`${styles.summaryPill} ${styles.pillBad}`}>
-          <span className={styles.summaryNum}>{summary.bad}</span>
-          <span className={styles.summaryLabel}>Reorder Now</span>
-        </div>
-      </div>
-
-      {/* ── Legend ── */}
-      <div className={styles.legend}>
-        <span className={styles.legendItem}>
-          <span className={`${styles.legendDot} ${styles.dotGood}`} />
-          Stock &gt; 1.2× ROP — Sufficient
-        </span>
-        <span className={styles.legendItem}>
-          <span className={`${styles.legendDot} ${styles.dotWarn}`} />
-          ROP &lt; Stock ≤ 1.2× ROP — Near Reorder Point
-        </span>
-        <span className={styles.legendItem}>
-          <span className={`${styles.legendDot} ${styles.dotBad}`} />
-          Stock ≤ ROP — Reorder Required
-        </span>
       </div>
 
       {/* ── Table ── */}
@@ -180,36 +202,94 @@ export default function SparePartsPage() {
         <table className={styles.table}>
           <thead>
             <tr>
+              <th className={styles.thStatus} />
               <th className={styles.thItem}>Item Name</th>
-              <th className={styles.thPart}>Part Number</th>
+              <th className={styles.thPart}>Part No.</th>
               <th className={styles.thSpec}>{specLabel}</th>
               <th className={styles.thNum}>
-                d<span className={styles.thHint}>Daily Demand</span>
+                <span className={styles.thMain}>d</span>
+                <span className={styles.thSub}>Daily Demand</span>
               </th>
               <th className={styles.thNum}>
-                L<span className={styles.thHint}>Lead Time (days)</span>
+                <span className={styles.thMain}>L</span>
+                <span className={styles.thSub}>Lead Time (days)</span>
               </th>
               <th className={styles.thNum}>
-                SS<span className={styles.thHint}>Safety Stock</span>
+                <span className={styles.thMain}>SS</span>
+                <span className={styles.thSub}>Safety Stock</span>
               </th>
               <th className={styles.thNum}>
-                ROP<span className={styles.thHint}>= d × L + SS</span>
+                <span className={styles.thMain}>ROP</span>
+                <span className={styles.thSub}>d × L + SS</span>
               </th>
-              <th className={styles.thStock}>Current Stock</th>
-              <th className={styles.thStatus}>Status</th>
+              <th className={styles.thStock}>
+                <span className={styles.thMain}>Stock</span>
+                <span className={styles.thSub}>Current</span>
+              </th>
+              <th className={styles.thChip}>Status</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className={styles.emptyRow}>
-                  No spare parts data for this machine.
+                <td colSpan={10} className={styles.emptyRow}>
+                  <div className={styles.emptyState}>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className={styles.emptyIcon}
+                    >
+                      <rect
+                        x="3"
+                        y="3"
+                        width="18"
+                        height="18"
+                        rx="3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M9 9h6M9 12h6M9 15h4"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    No spare parts data for this machine.
+                  </div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className={styles.emptyRow}>
-                  No parts match your search.
+                <td colSpan={10} className={styles.emptyRow}>
+                  <div className={styles.emptyState}>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className={styles.emptyIcon}
+                    >
+                      <circle
+                        cx="11"
+                        cy="11"
+                        r="7"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M16 16l4 4"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M8 11h6"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    No parts match your search.
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -219,13 +299,29 @@ export default function SparePartsPage() {
                   part.currentStock,
                   rop,
                 );
+
                 return (
                   <tr
                     key={part.id}
                     className={`${styles.row} ${styles[`row_${status}`]}`}
                   >
-                    <td className={styles.tdItem}>{part.itemName}</td>
-                    <td className={styles.tdPart}>{part.partNumber}</td>
+                    {/* Status accent bar */}
+                    <td className={styles.tdAccent}>
+                      <div
+                        className={`${styles.accentBar} ${styles[`accent_${status}`]}`}
+                      />
+                    </td>
+
+                    <td className={styles.tdItem}>
+                      <span className={styles.itemName}>{part.itemName}</span>
+                    </td>
+
+                    <td className={styles.tdPart}>
+                      <span className={styles.partBadge}>
+                        {part.partNumber}
+                      </span>
+                    </td>
+
                     <td className={styles.tdSpec}>{part.spec}</td>
 
                     {/* Editable: d */}
@@ -289,7 +385,7 @@ export default function SparePartsPage() {
                       />
                     </td>
 
-                    <td className={styles.tdStatus}>
+                    <td className={styles.tdChip}>
                       <span
                         className={`${styles.statusChip} ${styles[`chip_${status}`]}`}
                       >
@@ -308,11 +404,30 @@ export default function SparePartsPage() {
         </table>
       </div>
 
-      <p className={styles.formulaNote}>
-        ROP formula: <strong>ROP = d × L + SS</strong> &nbsp;·&nbsp; d = daily
-        demand &nbsp;·&nbsp; L = lead time (days) &nbsp;·&nbsp; SS = safety
-        stock
-      </p>
+      {/* ── Formula note ── */}
+      <div className={styles.formulaNote}>
+        <svg viewBox="0 0 16 16" fill="none" className={styles.formulaIcon}>
+          <circle
+            cx="8"
+            cy="8"
+            r="6.5"
+            stroke="currentColor"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M8 7v5"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+          <circle cx="8" cy="5" r="0.8" fill="currentColor" />
+        </svg>
+        <span>
+          <strong>ROP = d × L + SS</strong>
+          &nbsp;·&nbsp; d = daily demand &nbsp;·&nbsp; L = lead time (days)
+          &nbsp;·&nbsp; SS = safety stock
+        </span>
+      </div>
     </div>
   );
 }

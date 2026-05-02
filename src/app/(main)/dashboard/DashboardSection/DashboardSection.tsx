@@ -1,10 +1,30 @@
 "use client";
 
-import { getMachineById, DEFAULT_MACHINE_ID, type Machine, type StatusLevel } from "@/app/lib/machineData";
+import { useRouter } from "next/navigation";
+import {
+  getMachineById,
+  DEFAULT_MACHINE_ID,
+  type Machine,
+  type StatusLevel,
+} from "@/app/lib/machineData";
 import { useAppContext, TIME_FRAME_OPTIONS } from "@/app/context/AppContext";
 import type { AHPStrategyId } from "@/app/context/AppContext";
 import { getConditionStatus, parseDateString } from "@/app/lib/pfCurveUtils";
+import {
+  getSparePartsByMachine,
+  computeROP,
+  getStockStatus,
+} from "@/app/lib/sparePartsData";
 import styles from "./DashboardSection.module.css";
+
+// ─── ID bridge: machineData id → sparePartsData machineId ────────────────────
+const MACHINE_ID_MAP: Record<string, string> = {
+  "cnc-plasma": "plasma-cutter",
+  "cnc-laser": "laser-cutter",
+  "cnc-lathe": "lathe-machine",
+  "cnc-milling": "milling-machine",
+  "cnc-controller": "cnc-controller",
+};
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -15,6 +35,7 @@ function DashboardCard({
   children,
   liveTag,
   periodBadge,
+  href,
 }: {
   title: string;
   subtitle?: string;
@@ -22,12 +43,30 @@ function DashboardCard({
   children?: React.ReactNode;
   liveTag?: boolean;
   periodBadge?: string;
+  href?: string;
 }) {
+  const router = useRouter();
+
   return (
-    <div className={styles.card}>
+    <div
+      className={`${styles.card} ${href ? styles.cardClickable : ""}`}
+      onClick={href ? () => router.push(href) : undefined}
+      role={href ? "button" : undefined}
+      tabIndex={href ? 0 : undefined}
+      onKeyDown={
+        href
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") router.push(href);
+            }
+          : undefined
+      }
+    >
       <div className={styles.cardHeader}>
         {accent && (
-          <span className={styles.cardAccent} style={{ backgroundColor: accent }} />
+          <span
+            className={styles.cardAccent}
+            style={{ backgroundColor: accent }}
+          />
         )}
         <div className={styles.cardHeaderText}>
           <h3 className={styles.cardTitle}>{title}</h3>
@@ -36,15 +75,39 @@ function DashboardCard({
         <div className={styles.cardHeaderRight}>
           {periodBadge && (
             <span className={styles.periodBadge}>
-              {/* Clock icon */}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
               </svg>
               {periodBadge}
             </span>
           )}
           {liveTag && <span className={styles.cardLiveTag}>● Live</span>}
+          {href && (
+            <span className={styles.cardNavArrow}>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
+          )}
         </div>
       </div>
       <div className={styles.cardBody}>{children}</div>
@@ -90,7 +153,10 @@ function MiniBar({
     <div className={styles.miniBarTrack}>
       <div
         className={`${styles.miniBarFill} ${colorClass ?? ""}`}
-        style={{ width: `${pct}%`, ...(color ? { backgroundColor: color } : {}) }}
+        style={{
+          width: `${pct}%`,
+          ...(color ? { backgroundColor: color } : {}),
+        }}
       />
     </div>
   );
@@ -103,22 +169,25 @@ const STRATEGY_META: Record<
   { label: string; icon: string; color: string; description: string }
 > = {
   predictive: {
-    label:       "Predictive Maintenance",
-    icon:        "📡",
-    color:       "#185FA5",
-    description: "Monitor condition indicators and intervene before failure occurs.",
+    label: "Predictive Maintenance",
+    icon: "📡",
+    color: "#185FA5",
+    description:
+      "Monitor condition indicators and intervene before failure occurs.",
   },
   preventive: {
-    label:       "Preventive Maintenance",
-    icon:        "🔧",
-    color:       "#27500A",
-    description: "Schedule maintenance at fixed intervals to prevent unexpected breakdowns.",
+    label: "Preventive Maintenance",
+    icon: "🔧",
+    color: "#27500A",
+    description:
+      "Schedule maintenance at fixed intervals to prevent unexpected breakdowns.",
   },
   reactive: {
-    label:       "Reactive Maintenance",
-    icon:        "⚠️",
-    color:       "#854F0B",
-    description: "Address failures after they occur; suitable for non-critical assets.",
+    label: "Reactive Maintenance",
+    icon: "⚠️",
+    color: "#854F0B",
+    description:
+      "Address failures after they occur; suitable for non-critical assets.",
   },
 };
 
@@ -138,15 +207,6 @@ function fmtHrs(val: number): string {
   return `${val.toFixed(2)} hrs`;
 }
 
-// ── PF Curve condition metadata ──────────────────────────────────────────────
-
-const PF_CONDITION_META: Record<string, { label: string; color: string }> = {
-  "Normal":              { label: "Normal",              color: "#10b981" },
-  "Early Warning":       { label: "Early Warning",       color: "#f59e0b" },
-  "Degrading Condition": { label: "Degrading Condition", color: "#f97316" },
-  "Maintenance Trigger": { label: "Maintenance Trigger", color: "#ef4444" },
-};
-
 // ── Main component ───────────────────────────────────────────────────────────
 
 interface DashboardSectionProps {
@@ -156,7 +216,7 @@ interface DashboardSectionProps {
 export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const resolvedId = machineId ?? DEFAULT_MACHINE_ID;
   const machine: Machine = getMachineById(resolvedId)!;
-  const { pfCurve, spareParts } = machine;
+  const { spareParts } = machine;
 
   const { allKpiStates, allAhpStates, allSparePartsStates } = useAppContext();
 
@@ -165,143 +225,185 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const liveSparePartsState = allSparePartsStates[resolvedId] ?? {};
 
   const kpiOutputs = kpiState?.kpiOutputs ?? {
-    oeeScore: null, availability: null, performance: null,
-    quality: null, mtbf: null, mttr: null,
+    oeeScore: null,
+    availability: null,
+    performance: null,
+    quality: null,
+    mtbf: null,
+    mttr: null,
   };
   const ahpOutputs = ahpState?.ahpOutputs ?? {
     submitted: false,
     scores: { predictive: 0, preventive: 0, reactive: 0 },
-    critWeights: { "Cost": 0, "Long Term Reliability": 0, "Uptime": 0, "Utilization of Technology": 0 },
-    localWeights: { "Cost": [], "Long Term Reliability": [], "Uptime": [], "Utilization of Technology": [] },
+    critWeights: {
+      Cost: 0,
+      "Long Term Reliability": 0,
+      Uptime: 0,
+      "Utilization of Technology": 0,
+    },
+    localWeights: {
+      Cost: [],
+      "Long Term Reliability": [],
+      Uptime: [],
+      "Utilization of Technology": [],
+    },
     consistency: { criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } },
     recommendedStrategy: null,
   };
 
   // ── Time frame ────────────────────────────────────────────────────────────
-  // Read the reporting period the user selected on the KPI page for this machine.
-  const timeFrame   = kpiState?.timeFrame ?? "monthly";
-  const tfOption    = TIME_FRAME_OPTIONS.find((o) => o.value === timeFrame)!;
-  // Short label shown on KPI cards, e.g. "Monthly · Last 30 days"
+  const timeFrame = kpiState?.timeFrame ?? "monthly";
+  const tfOption = TIME_FRAME_OPTIONS.find((o) => o.value === timeFrame)!;
   const periodLabel = `${tfOption.label} · ${tfOption.description}`;
 
   const hasLiveKPI = kpiOutputs.oeeScore !== null;
-  const hasAHP     = ahpOutputs.submitted;
+  const hasAHP = ahpOutputs.submitted;
 
-  const liveOEE          = (kpiOutputs.oeeScore     ?? 0) * 100;
+  const liveOEE = (kpiOutputs.oeeScore ?? 0) * 100;
   const liveAvailability = (kpiOutputs.availability ?? 0) * 100;
-  const livePerformance  = (kpiOutputs.performance  ?? 0) * 100;
-  const liveQuality      = (kpiOutputs.quality      ?? 0) * 100;
-  const liveMTBF         = kpiOutputs.mtbf ?? 0;
-  const liveMTTR         = kpiOutputs.mttr ?? 0;
+  const livePerformance = (kpiOutputs.performance ?? 0) * 100;
+  const liveQuality = (kpiOutputs.quality ?? 0) * 100;
+  const liveMTBF = kpiOutputs.mtbf ?? 0;
+  const liveMTTR = kpiOutputs.mttr ?? 0;
 
-  const mtbfStatus: StatusLevel = liveMTBF >= 300 ? "good" : liveMTBF >= 150 ? "warn" : "bad";
-  const mttrStatus: StatusLevel = liveMTTR <= 4   ? "good" : liveMTTR <= 8   ? "warn" : "bad";
+  const mtbfStatus: StatusLevel =
+    liveMTBF >= 300 ? "good" : liveMTBF >= 150 ? "warn" : "bad";
+  const mttrStatus: StatusLevel =
+    liveMTTR <= 4 ? "good" : liveMTTR <= 8 ? "warn" : "bad";
 
   // ── AHP ──────────────────────────────────────────────────────────────────
-  const ALL_STRATEGY_IDS: AHPStrategyId[] = ["predictive", "preventive", "reactive"];
+  const ALL_STRATEGY_IDS: AHPStrategyId[] = [
+    "predictive",
+    "preventive",
+    "reactive",
+  ];
 
   const rankedStrategies = hasAHP
     ? [...ALL_STRATEGY_IDS].sort(
-        (a, b) => (ahpOutputs.scores[b] ?? 0) - (ahpOutputs.scores[a] ?? 0)
+        (a, b) => (ahpOutputs.scores[b] ?? 0) - (ahpOutputs.scores[a] ?? 0),
       )
     : ALL_STRATEGY_IDS;
 
-  const topStrategyId   = rankedStrategies[0];
+  const topStrategyId = rankedStrategies[0];
   const topStrategyMeta = STRATEGY_META[topStrategyId];
-  const topScore        = ahpOutputs.scores[topStrategyId] ?? 0;
-  const maxScore        = Math.max(...ALL_STRATEGY_IDS.map((id) => ahpOutputs.scores[id] ?? 0), 1);
+  const topScore = ahpOutputs.scores[topStrategyId] ?? 0;
+  const maxScore = Math.max(
+    ...ALL_STRATEGY_IDS.map((id) => ahpOutputs.scores[id] ?? 0),
+    1,
+  );
 
-  // ── PF Curve ──────────────────────────────────────────────────────────────
-  const pfInterval  = pfCurve.pfInterval;
-  const pDate       = parseDateString(pfCurve.pPointDate);
-  const fDate       = parseDateString(pfCurve.fPointDate);
-  const today       = new Date();
-
-  const daysToFailure = fDate
-    ? Math.max(0, Math.round((fDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
-    : null;
-
-  const daysElapsed = pDate
-    ? Math.max(0, Math.round((today.getTime() - pDate.getTime()) / (1000 * 60 * 60 * 24)))
-    : 0;
-
-  const elapsedPct = pDate && pfInterval > 0
-    ? Math.min(1, daysElapsed / pfInterval)
-    : 0;
-
-  const pfCondition = pDate ? getConditionStatus(pDate, pfInterval) : "Normal";
-  const pfMeta      = PF_CONDITION_META[pfCondition] ?? PF_CONDITION_META["Normal"];
-
-  const daysToFailureStatus: StatusLevel =
-    daysToFailure === null ? "good" :
-    daysToFailure <= 7     ? "bad"  :
-    daysToFailure <= 14    ? "warn" : "good";
-
-  // ── Spare Parts ───────────────────────────────────────────────────────────
-  const allParts      = spareParts ?? [];
-  const totalParts    = allParts.length;
+  // ── Spare Parts (critical parts condition) ────────────────────────────────
+  const allParts = spareParts ?? [];
+  const totalParts = allParts.length;
   const criticalParts = allParts.filter((p) => p.classification === "Critical");
 
-  let countNormal    = 0;
+  let countNormal = 0;
   let countEarlyWarn = 0;
   let countDegrading = 0;
-  let countTrigger   = 0;
+  let countTrigger = 0;
 
   criticalParts.forEach((p) => {
     const liveState = liveSparePartsState[p.id];
-    const pDateStr  = liveState?.pDate      ?? p.defaultPDate;
-    const interval  = liveState?.pfInterval ?? p.defaultPFInterval;
+    const pDateStr = liveState?.pDate ?? p.defaultPDate;
+    const interval = liveState?.pfInterval ?? p.defaultPFInterval;
 
-    if (!pDateStr || !interval) { countNormal++; return; }
+    if (!pDateStr || !interval) {
+      countNormal++;
+      return;
+    }
     const pd = parseDateString(pDateStr);
-    if (!pd) { countNormal++; return; }
+    if (!pd) {
+      countNormal++;
+      return;
+    }
 
     const cond = getConditionStatus(pd, interval);
-    if      (cond === "Maintenance Trigger") countTrigger++;
+    if (cond === "Maintenance Trigger") countTrigger++;
     else if (cond === "Degrading Condition") countDegrading++;
-    else if (cond === "Early Warning")       countEarlyWarn++;
-    else                                     countNormal++;
+    else if (cond === "Early Warning") countEarlyWarn++;
+    else countNormal++;
   });
+
+  // ── Consumables (ROP-based stock status) ──────────────────────────────────
+  const sparesMachineId = MACHINE_ID_MAP[resolvedId] ?? resolvedId;
+  const consumableRows = getSparePartsByMachine(sparesMachineId).map((part) => {
+    const saved = liveSparePartsState[part.id] ?? {};
+    return {
+      ...part,
+      d: (saved as any).d ?? part.d,
+      L: (saved as any).L ?? part.L,
+      SS: (saved as any).SS ?? part.SS,
+      currentStock: (saved as any).currentStock ?? part.currentStock,
+    };
+  });
+
+  const consumableTotal = consumableRows.length;
+  let consumableGood = 0;
+  let consumableWarn = 0;
+  let consumableBad = 0;
+
+  consumableRows.forEach((r) => {
+    const rop = computeROP(r.d, r.L, r.SS);
+    const s = getStockStatus(r.currentStock, rop);
+    if (s === "good") consumableGood++;
+    else if (s === "warn") consumableWarn++;
+    else consumableBad++;
+  });
+
+  // ── Consumable status bar widths ──────────────────────────────────────────
+  const consumableTotalSafe = consumableTotal || 1;
+  const consumableGoodPct = (consumableGood / consumableTotalSafe) * 100;
+  const consumableWarnPct = (consumableWarn / consumableTotalSafe) * 100;
+  const consumableBadPct = (consumableBad / consumableTotalSafe) * 100;
 
   return (
     <section className={styles.dashboardSection}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Dashboard Overview</h2>
         <div className={styles.sectionHeaderRight}>
-          {hasLiveKPI && <span className={styles.liveKpiTag}>KPI inputs active</span>}
-          {hasAHP     && <span className={styles.ahpTag}>AHP computed</span>}
+          {hasLiveKPI && (
+            <span className={styles.liveKpiTag}>KPI inputs active</span>
+          )}
+          {hasAHP && <span className={styles.ahpTag}>AHP computed</span>}
           <span className={styles.liveTag}>● Live</span>
         </div>
       </div>
 
       <div className={styles.grid}>
-
         {/* ── Column 1 — Recommended Strategy + Strategy Ranking ── */}
         <div className={styles.col}>
-
           <DashboardCard
             title="Recommended Strategy"
             subtitle="Based on AHP Assessment"
             accent={hasAHP ? topStrategyMeta.color : "#c9d9cc"}
+            href="/criticality"
           >
             {hasAHP ? (
               <div
                 className={styles.strategyRecommendBanner}
                 style={{
-                  borderColor:     topStrategyMeta.color,
+                  borderColor: topStrategyMeta.color,
                   backgroundColor: topStrategyMeta.color + "12",
                 }}
               >
-                <span className={styles.strategyRecommendIcon}>{topStrategyMeta.icon}</span>
+                <span className={styles.strategyRecommendIcon}>
+                  {topStrategyMeta.icon}
+                </span>
                 <div className={styles.strategyRecommendText}>
-                  <span className={styles.strategyRecommendName} style={{ color: topStrategyMeta.color }}>
+                  <span
+                    className={styles.strategyRecommendName}
+                    style={{ color: topStrategyMeta.color }}
+                  >
                     {topStrategyMeta.label}
                   </span>
                   <span className={styles.strategyRecommendDesc}>
                     {topStrategyMeta.description}
                   </span>
                 </div>
-                <span className={styles.strategyRecommendScore} style={{ color: topStrategyMeta.color }}>
+                <span
+                  className={styles.strategyRecommendScore}
+                  style={{ color: topStrategyMeta.color }}
+                >
                   {topScore.toFixed(1)}
                   <span className={styles.strategyRecommendScoreUnit}>%</span>
                 </span>
@@ -310,7 +412,8 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
               <div className={styles.ahpEmptyState}>
                 <span className={styles.ahpEmptyIcon}>🔍</span>
                 <p className={styles.ahpEmptyText}>
-                  No assessment yet. Complete the AHP assessment on the Criticality page to see a recommendation.
+                  No assessment yet. Complete the AHP assessment on the
+                  Criticality page to see a recommendation.
                 </p>
               </div>
             )}
@@ -320,11 +423,12 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             title="Strategy Ranking"
             subtitle="All maintenance strategies scored"
             accent="#4a6b53"
+            href="/criticality"
           >
             {hasAHP ? (
               <div className={styles.strategyRankingList}>
                 {rankedStrategies.map((id, index) => {
-                  const meta  = STRATEGY_META[id];
+                  const meta = STRATEGY_META[id];
                   const score = ahpOutputs.scores[id] ?? 0;
                   const isTop = index === 0;
                   return (
@@ -332,24 +436,42 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                       key={id}
                       className={`${styles.strategyRankRow} ${isTop ? styles.strategyRankRowTop : ""}`}
                     >
-                      <span className={styles.strategyRankNumber} style={{ color: isTop ? meta.color : undefined }}>
+                      <span
+                        className={styles.strategyRankNumber}
+                        style={{ color: isTop ? meta.color : undefined }}
+                      >
                         {index + 1}
                       </span>
                       <div className={styles.strategyRankInfo}>
                         <div className={styles.strategyRankMeta}>
-                          <span className={styles.strategyRankIcon}>{meta.icon}</span>
-                          <span className={styles.strategyRankName} style={{ color: isTop ? meta.color : undefined }}>
+                          <span className={styles.strategyRankIcon}>
+                            {meta.icon}
+                          </span>
+                          <span
+                            className={styles.strategyRankName}
+                            style={{ color: isTop ? meta.color : undefined }}
+                          >
                             {meta.label}
                           </span>
                           {isTop && (
-                            <span className={styles.strategyRankBadge} style={{ backgroundColor: meta.color }}>
+                            <span
+                              className={styles.strategyRankBadge}
+                              style={{ backgroundColor: meta.color }}
+                            >
                               Top
                             </span>
                           )}
                         </div>
-                        <MiniBar value={score} max={maxScore} color={meta.color} />
+                        <MiniBar
+                          value={score}
+                          max={maxScore}
+                          color={meta.color}
+                        />
                       </div>
-                      <span className={styles.strategyRankScore} style={{ color: meta.color }}>
+                      <span
+                        className={styles.strategyRankScore}
+                        style={{ color: meta.color }}
+                      >
                         {score.toFixed(1)}
                         <span className={styles.strategyRankScoreUnit}>%</span>
                       </span>
@@ -366,52 +488,68 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
               </div>
             )}
           </DashboardCard>
-
         </div>
 
-        {/* ── Column 2 — OEE + MTBF/MTTR ───────────────────────── */}
+        {/* ── Column 2 — OEE + MTBF/MTTR ── */}
         <div className={styles.col}>
-
           <DashboardCard
             title="OEE"
             subtitle="Overall Equipment Effectiveness"
             accent="#10b981"
             periodBadge={hasLiveKPI ? periodLabel : undefined}
+            href="/kpi"
           >
             {hasLiveKPI ? (
               <>
                 <div className={styles.oeeBigRow}>
-                  <span className={`${styles.oeeBigValue} ${getOEEStatusClass(liveOEE)}`}>
+                  <span
+                    className={`${styles.oeeBigValue} ${getOEEStatusClass(liveOEE)}`}
+                  >
                     {fmtPct(liveOEE)}
                   </span>
                   <div className={styles.oeeBenchmarks}>
-                    <span className={styles.benchmarkChip} style={{ backgroundColor: "#fef3c7", color: "#92400e" }}>
+                    <span
+                      className={styles.benchmarkChip}
+                      style={{ backgroundColor: "#fef3c7", color: "#92400e" }}
+                    >
                       65% Acceptable
                     </span>
-                    <span className={styles.benchmarkChip} style={{ backgroundColor: "#d1fae5", color: "#065f46" }}>
+                    <span
+                      className={styles.benchmarkChip}
+                      style={{ backgroundColor: "#d1fae5", color: "#065f46" }}
+                    >
                       85% World Class
                     </span>
                   </div>
                 </div>
                 <div className={styles.oeeMainBar}>
-                  <MiniBar value={liveOEE} colorClass={getOEEStatusClass(liveOEE)} />
+                  <MiniBar
+                    value={liveOEE}
+                    colorClass={getOEEStatusClass(liveOEE)}
+                  />
                 </div>
                 <div className={styles.oeeSubRows}>
                   <div className={styles.oeeSubRow}>
                     <span className={styles.oeeSubLabel}>Availability</span>
-                    <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveAvailability)}`}>
+                    <span
+                      className={`${styles.oeeSubValue} ${getOEEStatusClass(liveAvailability)}`}
+                    >
                       {fmtPct(liveAvailability)}
                     </span>
                   </div>
                   <div className={styles.oeeSubRow}>
                     <span className={styles.oeeSubLabel}>Performance</span>
-                    <span className={`${styles.oeeSubValue} ${getOEEStatusClass(livePerformance)}`}>
+                    <span
+                      className={`${styles.oeeSubValue} ${getOEEStatusClass(livePerformance)}`}
+                    >
                       {fmtPct(livePerformance)}
                     </span>
                   </div>
                   <div className={styles.oeeSubRow}>
                     <span className={styles.oeeSubLabel}>Quality</span>
-                    <span className={`${styles.oeeSubValue} ${getOEEStatusClass(liveQuality)}`}>
+                    <span
+                      className={`${styles.oeeSubValue} ${getOEEStatusClass(liveQuality)}`}
+                    >
                       {fmtPct(liveQuality)}
                     </span>
                   </div>
@@ -421,7 +559,8 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
               <div className={styles.ahpEmptyState}>
                 <span className={styles.ahpEmptyIcon}>📈</span>
                 <p className={styles.ahpEmptyText}>
-                  No KPI data yet. Enter values on the KPI page to see OEE results.
+                  No KPI data yet. Enter values on the KPI page to see OEE
+                  results.
                 </p>
               </div>
             )}
@@ -432,96 +571,77 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             subtitle="Reliability Metrics"
             accent="#0d3d1f"
             periodBadge={hasLiveKPI ? periodLabel : undefined}
+            href="/kpi"
           >
             {hasLiveKPI ? (
               <>
-                <StatRow label="Mean Time Between Failures" value={fmtHrs(liveMTBF)} status={mtbfStatus} />
-                <StatRow label="Mean Time To Repair"        value={fmtHrs(liveMTTR)} status={mttrStatus} />
+                <StatRow
+                  label="Mean Time Between Failures"
+                  value={fmtHrs(liveMTBF)}
+                  status={mtbfStatus}
+                />
+                <StatRow
+                  label="Mean Time To Repair"
+                  value={fmtHrs(liveMTTR)}
+                  status={mttrStatus}
+                />
               </>
             ) : (
               <div className={styles.ahpEmptyState}>
                 <span className={styles.ahpEmptyIcon}>🔧</span>
                 <p className={styles.ahpEmptyText}>
-                  No reliability data yet. Enter values on the KPI page to see MTBF &amp; MTTR results.
+                  No reliability data yet. Enter values on the KPI page to see
+                  MTBF &amp; MTTR results.
                 </p>
               </div>
             )}
           </DashboardCard>
-
         </div>
 
-        {/* ── Column 3 — PF Curve + Spare Parts ──────────────── */}
+        {/* ── Column 3 — Critical Spare Parts + Consumables ── */}
         <div className={styles.col}>
-
-          <DashboardCard title="PF Curve Status" subtitle="Potential-Functional Failure" accent="#f59e0b">
-
-            <div className={styles.pfConditionRow}>
-              <span
-                className={styles.pfConditionBadge}
-                style={{
-                  backgroundColor: pfMeta.color + "20",
-                  color:           pfMeta.color,
-                  borderColor:     pfMeta.color + "50",
-                }}
-              >
-                {pfMeta.label}
-              </span>
-              <span className={styles.pfElapsedPct}>
-                {Math.round(elapsedPct * 100)}% elapsed
-              </span>
-            </div>
-
-            <div className={styles.pfProgressWrapper}>
-              <div className={styles.pfProgressTrack}>
-                <div
-                  className={styles.pfProgressFill}
-                  style={{ width: `${Math.round(elapsedPct * 100)}%`, backgroundColor: pfMeta.color }}
-                />
-                <div className={styles.pfMarker} style={{ left: "60%" }} title="Early Warning (60%)" />
-                <div className={styles.pfMarker} style={{ left: "70%" }} title="Degrading (70%)"     />
-                <div className={styles.pfMarker} style={{ left: "80%" }} title="Trigger (80%)"       />
-              </div>
-              <div className={styles.pfMarkerLabels}>
-                <span style={{ left: "60%" }}>60%</span>
-                <span style={{ left: "70%" }}>70%</span>
-                <span style={{ left: "80%" }}>80%</span>
-              </div>
-            </div>
-
-            <StatRow label="PF Interval"    value={String(pfInterval)} unit="days" />
-            <StatRow label="P Point Date"   value={pfCurve.pPointDate} />
-            <StatRow label="F Point Date"   value={pfCurve.fPointDate} />
+          <DashboardCard
+            title="Critical Spare Parts"
+            subtitle="Parts Condition Summary"
+            accent="#7a9e84"
+            href="/spare-parts"
+          >
+            <StatRow label="Total Parts" value={String(totalParts)} />
             <StatRow
-              label="Days to Failure"
-              value={daysToFailure !== null ? String(daysToFailure) : "—"}
-              unit={daysToFailure !== null ? "days" : undefined}
-              status={daysToFailureStatus}
+              label="Critical Parts"
+              value={String(criticalParts.length)}
             />
-          </DashboardCard>
-
-          <DashboardCard title="Critical Spare Parts" subtitle="Parts Condition Summary" accent="#7a9e84">
-
-            <StatRow label="Total Parts"    value={String(totalParts)} />
-            <StatRow label="Critical Parts" value={String(criticalParts.length)} />
 
             <div className={styles.sparePartsDivider} />
 
             <div className={styles.sparePartsConditionGrid}>
-
               <div className={styles.sparePartsConditionItem}>
                 <div className={styles.sparePartsConditionTop}>
-                  <span className={styles.sparePartsConditionDot} style={{ backgroundColor: "#10b981" }} />
-                  <span className={styles.sparePartsConditionLabel}>Normal</span>
+                  <span
+                    className={styles.sparePartsConditionDot}
+                    style={{ backgroundColor: "#10b981" }}
+                  />
+                  <span className={styles.sparePartsConditionLabel}>
+                    Normal
+                  </span>
                 </div>
-                <span className={styles.sparePartsConditionCount} style={{ color: "#10b981" }}>
+                <span
+                  className={styles.sparePartsConditionCount}
+                  style={{ color: "#10b981" }}
+                >
                   {countNormal}
                 </span>
               </div>
 
               <div className={styles.sparePartsConditionItem}>
                 <div className={styles.sparePartsConditionTop}>
-                  <span className={styles.sparePartsConditionDot} style={{ backgroundColor: "#f59e0b" }} />
-                  <span className={styles.sparePartsConditionLabel}>Early Warning</span>
+                  <span
+                    className={styles.sparePartsConditionDot}
+                    style={{ backgroundColor: "#f59e0b" }}
+                  />
+                  <span className={styles.sparePartsConditionLabel}>
+                    Early Warning
+                  </span>
                 </div>
                 <span
                   className={styles.sparePartsConditionCount}
@@ -533,8 +653,13 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
 
               <div className={styles.sparePartsConditionItem}>
                 <div className={styles.sparePartsConditionTop}>
-                  <span className={styles.sparePartsConditionDot} style={{ backgroundColor: "#f97316" }} />
-                  <span className={styles.sparePartsConditionLabel}>Degrading</span>
+                  <span
+                    className={styles.sparePartsConditionDot}
+                    style={{ backgroundColor: "#f97316" }}
+                  />
+                  <span className={styles.sparePartsConditionLabel}>
+                    Degrading
+                  </span>
                 </div>
                 <span
                   className={styles.sparePartsConditionCount}
@@ -546,8 +671,13 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
 
               <div className={styles.sparePartsConditionItem}>
                 <div className={styles.sparePartsConditionTop}>
-                  <span className={styles.sparePartsConditionDot} style={{ backgroundColor: "#ef4444" }} />
-                  <span className={styles.sparePartsConditionLabel}>Trigger</span>
+                  <span
+                    className={styles.sparePartsConditionDot}
+                    style={{ backgroundColor: "#ef4444" }}
+                  />
+                  <span className={styles.sparePartsConditionLabel}>
+                    Trigger
+                  </span>
                 </div>
                 <span
                   className={styles.sparePartsConditionCount}
@@ -556,10 +686,154 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                   {countTrigger}
                 </span>
               </div>
-
             </div>
           </DashboardCard>
 
+          {/* ── Consumables card ── */}
+          <DashboardCard
+            title="Consumables"
+            subtitle="Inventory Stock Status"
+            accent="#1a5c2a"
+            href="/consumables"
+          >
+            {consumableTotal === 0 ? (
+              <div className={styles.ahpEmptyState}>
+                <span className={styles.ahpEmptyIcon}>📦</span>
+                <p className={styles.ahpEmptyText}>
+                  No consumable parts data available for this machine.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Total count header */}
+                <div className={styles.consumablesTotalRow}>
+                  <span className={styles.consumablesTotalLabel}>
+                    Total Parts
+                  </span>
+                  <span className={styles.consumablesTotalValue}>
+                    {consumableTotal}
+                  </span>
+                </div>
+
+                {/* Stacked progress bar */}
+                <div className={styles.consumablesStackedBar}>
+                  {consumableGood > 0 && (
+                    <div
+                      className={styles.consumablesStackedSegment}
+                      style={{
+                        width: `${consumableGoodPct}%`,
+                        backgroundColor: "#10b981",
+                      }}
+                      title={`Sufficient: ${consumableGood}`}
+                    />
+                  )}
+                  {consumableWarn > 0 && (
+                    <div
+                      className={styles.consumablesStackedSegment}
+                      style={{
+                        width: `${consumableWarnPct}%`,
+                        backgroundColor: "#f59e0b",
+                      }}
+                      title={`Near ROP: ${consumableWarn}`}
+                    />
+                  )}
+                  {consumableBad > 0 && (
+                    <div
+                      className={styles.consumablesStackedSegment}
+                      style={{
+                        width: `${consumableBadPct}%`,
+                        backgroundColor: "#ef4444",
+                      }}
+                      title={`Reorder: ${consumableBad}`}
+                    />
+                  )}
+                </div>
+
+                {/* Breakdown rows */}
+                <div className={styles.consumablesBreakdown}>
+                  <div className={styles.consumablesBreakdownRow}>
+                    <div className={styles.consumablesBreakdownLeft}>
+                      <span
+                        className={styles.consumablesDot}
+                        style={{ backgroundColor: "#10b981" }}
+                      />
+                      <span className={styles.consumablesBreakdownLabel}>
+                        Sufficient
+                      </span>
+                    </div>
+                    <div className={styles.consumablesBreakdownRight}>
+                      <span
+                        className={styles.consumablesBreakdownCount}
+                        style={{ color: "#059669" }}
+                      >
+                        {consumableGood}
+                      </span>
+                      <span className={styles.consumablesBreakdownPct}>
+                        {consumableTotal > 0
+                          ? Math.round(consumableGoodPct)
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.consumablesBreakdownRow}>
+                    <div className={styles.consumablesBreakdownLeft}>
+                      <span
+                        className={styles.consumablesDot}
+                        style={{ backgroundColor: "#f59e0b" }}
+                      />
+                      <span className={styles.consumablesBreakdownLabel}>
+                        Near ROP
+                      </span>
+                    </div>
+                    <div className={styles.consumablesBreakdownRight}>
+                      <span
+                        className={styles.consumablesBreakdownCount}
+                        style={{
+                          color: consumableWarn > 0 ? "#d97706" : "#7a9e84",
+                        }}
+                      >
+                        {consumableWarn}
+                      </span>
+                      <span className={styles.consumablesBreakdownPct}>
+                        {consumableTotal > 0
+                          ? Math.round(consumableWarnPct)
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.consumablesBreakdownRow}>
+                    <div className={styles.consumablesBreakdownLeft}>
+                      <span
+                        className={styles.consumablesDot}
+                        style={{ backgroundColor: "#ef4444" }}
+                      />
+                      <span className={styles.consumablesBreakdownLabel}>
+                        Reorder Now
+                      </span>
+                    </div>
+                    <div className={styles.consumablesBreakdownRight}>
+                      <span
+                        className={styles.consumablesBreakdownCount}
+                        style={{
+                          color: consumableBad > 0 ? "#dc2626" : "#7a9e84",
+                        }}
+                      >
+                        {consumableBad}
+                      </span>
+                      <span className={styles.consumablesBreakdownPct}>
+                        {consumableTotal > 0 ? Math.round(consumableBadPct) : 0}
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </DashboardCard>
         </div>
       </div>
     </section>
