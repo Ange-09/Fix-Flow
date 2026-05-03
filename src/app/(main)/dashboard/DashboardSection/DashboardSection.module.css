@@ -89,6 +89,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 320px;
 }
 
 .card:hover {
@@ -872,4 +873,16 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
+}
+
+.mtbfCard .statLabel {
+  font-size: 1rem;
+}
+
+.mtbfCard .statValue {
+  font-size: 1.2rem;
+}
+
+.mtbfCard .statUnit {
+  font-size: 0.95rem;
 }

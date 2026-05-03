@@ -37,6 +37,7 @@ function DashboardCard({
   liveTag,
   periodBadge,
   href,
+  className,
 }: {
   title: string;
   subtitle?: string;
@@ -45,12 +46,13 @@ function DashboardCard({
   liveTag?: boolean;
   periodBadge?: string;
   href?: string;
+  className?: string;
 }) {
   const router = useRouter();
 
   return (
     <div
-      className={`${styles.card} ${href ? styles.cardClickable : ""}`}
+      className={`${styles.card} ${href ? styles.cardClickable : ""} ${className ?? ""}`}
       onClick={href ? () => router.push(href) : undefined}
       role={href ? "button" : undefined}
       tabIndex={href ? 0 : undefined}
@@ -609,6 +611,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
           <DashboardCard
             title="MTBF / MTTR"
             subtitle="Reliability Metrics"
+            className={styles.mtbfCard}
             accent="#0d3d1f"
             periodBadge={hasLiveKPI ? periodLabel : undefined}
             href="/kpi"
