@@ -59,7 +59,9 @@
   color: #4a6b53;
   text-decoration: none;
   border-radius: 6px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .navLink:hover {
@@ -88,7 +90,9 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .hamburger:hover {
@@ -102,7 +106,10 @@
   height: 2px;
   background-color: #0d1f11;
   border-radius: 999px;
-  transition: transform 0.25s ease, opacity 0.25s ease, width 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease,
+    width 0.25s ease;
   transform-origin: center;
 }
 
@@ -137,12 +144,14 @@
   right: 0;
   background: #ffffff;
   border-bottom: 1px solid #c9d9cc;
-  box-shadow: 0 8px 24px rgba(13, 31, 17, 0.10);
+  box-shadow: 0 8px 24px rgba(13, 31, 17, 0.1);
   z-index: 175;
   transform: translateY(-8px);
   opacity: 0;
   pointer-events: none;
-  transition: transform 0.22s ease, opacity 0.22s ease;
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
 }
 
 .mobileNavOpen {
@@ -166,7 +175,9 @@
   color: #4a6b53;
   text-decoration: none;
   border-radius: 8px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .mobileNavLink:hover {
@@ -178,6 +189,19 @@
   background-color: #d6eedd;
   color: #1a5c2a;
   font-weight: 600;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 /* ── Responsive breakpoint ── */
@@ -204,6 +228,10 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

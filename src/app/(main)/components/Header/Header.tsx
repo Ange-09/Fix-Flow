@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import styles from "./Header.module.css";
@@ -35,29 +36,15 @@ export default function Header() {
       <header className={styles.header}>
         <div className={styles.brand}>
           <div className={styles.logo}>
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 32 32"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect width="32" height="32" rx="8" fill="#1a5c2a" />
-              <path
-                d="M8 10H18M8 16H22M8 22H15"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <circle cx="23" cy="22" r="4" fill="white" />
-              <path
-                d="M21.5 22H24.5M23 20.5V23.5"
-                stroke="#1a5c2a"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
+            <Image
+              src="/images/logo.png"
+              alt="Fix Flow Logo"
+              width={40}
+              height={40}
+              priority
+            />
           </div>
+
           <span className={styles.brandName}>Fix Flow</span>
         </div>
 
@@ -68,7 +55,9 @@ export default function Header() {
               <li key={href}>
                 <Link
                   href={href}
-                  className={`${styles.navLink} ${pathname === href ? styles.active : ""}`}
+                  className={`${styles.navLink} ${
+                    pathname === href ? styles.active : ""
+                  }`}
                 >
                   {label}
                 </Link>
@@ -79,7 +68,9 @@ export default function Header() {
 
         {/* Hamburger button (mobile only) */}
         <button
-          className={`${styles.hamburger} ${menuOpen ? styles.hamburgerOpen : ""}`}
+          className={`${styles.hamburger} ${
+            menuOpen ? styles.hamburgerOpen : ""
+          }`}
           onClick={() => setMenuOpen((prev) => !prev)}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
@@ -101,7 +92,9 @@ export default function Header() {
 
       {/* Mobile drawer */}
       <nav
-        className={`${styles.mobileNav} ${menuOpen ? styles.mobileNavOpen : ""}`}
+        className={`${styles.mobileNav} ${
+          menuOpen ? styles.mobileNavOpen : ""
+        }`}
         aria-hidden={!menuOpen}
       >
         <ul className={styles.mobileNavList}>
@@ -109,7 +102,9 @@ export default function Header() {
             <li key={href}>
               <Link
                 href={href}
-                className={`${styles.mobileNavLink} ${pathname === href ? styles.active : ""}`}
+                className={`${styles.mobileNavLink} ${
+                  pathname === href ? styles.active : ""
+                }`}
                 onClick={() => setMenuOpen(false)}
               >
                 {label}

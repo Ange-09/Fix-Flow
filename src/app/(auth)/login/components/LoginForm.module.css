@@ -46,7 +46,9 @@
   background: #f7faf7;
   border: 1px solid #c9d9cc;
   border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(13, 31, 17, 0.07), 0 1px 4px rgba(13, 31, 17, 0.04);
+  box-shadow:
+    0 4px 24px rgba(13, 31, 17, 0.07),
+    0 1px 4px rgba(13, 31, 17, 0.04);
   padding: 2.5rem 2.25rem 2rem;
   display: flex;
   flex-direction: column;
@@ -83,20 +85,22 @@
 .logoArea {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1.75rem;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .logoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  line-height: 0;
 }
 
-.logoText {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #0d1f11;
-  letter-spacing: -0.03em;
+.logoIcon img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
 }
 
 /* ── Headings ───────────────────────────────────────────────────────── */
@@ -167,7 +171,9 @@
   border: 1.5px solid #c9d9cc;
   border-radius: 10px;
   outline: none;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
 }
 
 .input::placeholder {
@@ -176,7 +182,7 @@
 
 .input:focus {
   border-color: #1a5c2a;
-  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.10);
+  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.1);
 }
 
 /* ── Error box ──────────────────────────────────────────────────────── */
@@ -193,9 +199,16 @@
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25%       { transform: translateX(-4px); }
-  75%       { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 .errorBox span {
@@ -220,7 +233,10 @@
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+  transition:
+    background 0.18s,
+    transform 0.15s,
+    box-shadow 0.18s;
   box-shadow: 0 2px 8px rgba(26, 92, 42, 0.18);
   margin-top: 0.25rem;
   margin-bottom: 1rem;
@@ -253,7 +269,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Hint ───────────────────────────────────────────────────────────── */

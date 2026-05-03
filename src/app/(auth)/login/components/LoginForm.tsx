@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import styles from "./LoginForm.module.css";
 
 export default function LoginForm() {
@@ -12,15 +13,10 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
-    console.log("LOGIN CLICKED");
-
     if (!username.trim() || !password.trim()) {
-      console.log("VALIDATION FAILED");
       setError("Please enter both a username and password.");
       return;
     }
-
-    console.log("NAVIGATING TO DASHBOARD");
 
     router.push("/dashboard");
   };
@@ -31,26 +27,18 @@ export default function LoginForm() {
 
   return (
     <div className={styles.page}>
-      {/* Decorative background blobs */}
-
       <div className={styles.card}>
-        {/* Logo mark */}
+        {/* Logo */}
         <div className={styles.logoArea}>
           <div className={styles.logoIcon}>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="8" fill="#1a5c2a" />
-              <path
-                d="M8 20 L8 13 L14 8 L20 13 L20 20"
-                stroke="#d6eedd"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <rect x="11" y="15" width="6" height="5" rx="1" fill="#d6eedd" />
-            </svg>
+            <Image
+              src="/images/logologin.png"
+              alt="Fix Flow Logo"
+              width={44}
+              height={44}
+              priority
+            />
           </div>
-          <span className={styles.logoText}>Fix Flow</span>
         </div>
 
         <div className={styles.headingGroup}>
@@ -65,6 +53,7 @@ export default function LoginForm() {
             <label className={styles.label} htmlFor="username">
               Username
             </label>
+
             <div className={styles.inputWrapper}>
               <span className={styles.inputIcon}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -83,6 +72,7 @@ export default function LoginForm() {
                   />
                 </svg>
               </span>
+
               <input
                 id="username"
                 type="text"
@@ -91,7 +81,6 @@ export default function LoginForm() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={handleKeyDown}
-                autoComplete="username"
               />
             </div>
           </div>
@@ -100,6 +89,7 @@ export default function LoginForm() {
             <label className={styles.label} htmlFor="password">
               Password
             </label>
+
             <div className={styles.inputWrapper}>
               <span className={styles.inputIcon}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -120,6 +110,7 @@ export default function LoginForm() {
                   />
                 </svg>
               </span>
+
               <input
                 id="password"
                 type="password"
@@ -128,26 +119,12 @@ export default function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={handleKeyDown}
-                autoComplete="current-password"
               />
             </div>
           </div>
         </div>
 
-        {error && (
-          <div className={styles.errorBox}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="2" />
-              <path
-                d="M12 7v5M12 16h.01"
-                stroke="#ef4444"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span>{error}</span>
-          </div>
-        )}
+        {error && <div className={styles.errorBox}>{error}</div>}
 
         <button
           type="button"
@@ -155,22 +132,7 @@ export default function LoginForm() {
           onClick={handleLogin}
           disabled={loading}
         >
-          {loading ? (
-            <span className={styles.spinner} />
-          ) : (
-            <>
-              Sign In
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M5 12h14M13 6l6 6-6 6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </>
-          )}
+          {loading ? <span className={styles.spinner} /> : "Sign In"}
         </button>
       </div>
 
