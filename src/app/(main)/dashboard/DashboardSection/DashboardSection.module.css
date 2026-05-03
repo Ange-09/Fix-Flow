@@ -858,3 +858,18 @@
   min-width: 30px;
   text-align: right;
 }
+
+.customMachineTag {
+  display: inline-flex;
+  align-items: center;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border: 1px solid #b8d4bf;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}

@@ -128,34 +128,42 @@ export interface AHPOutputs {
 export interface SparePartState {
   pDate: string;
   pfInterval: number;
-  // Consumables page editable fields (optional — fall back to base data if absent)
   d?: number;
   L?: number;
   SS?: number;
   currentStock?: number;
 }
 
-// partId → SparePartState
 export type MachineSparePartsState = Record<string, SparePartState>;
 
 // ── Custom (user-added) spare parts ──────────────────────────────────────────
-// Full part records created by the user at runtime.
-// Scoped per machine (sparePartsData machineId) so they appear only for that machine.
 
 export interface CustomSparePart {
-  id: string; // generated: "custom-{machineId}-{timestamp}"
-  machineId: string; // sparePartsData machineId (e.g. "plasma-cutter")
+  id: string;
+  machineId: string;
   itemName: string;
   partNumber: string;
-  spec: string; // value shown in the Ampere / Size / Type column
+  spec: string;
   d: number;
   L: number;
   SS: number;
   currentStock: number;
 }
 
-// sparePartsData machineId → CustomSparePart[]
 export type AllCustomSpareParts = Record<string, CustomSparePart[]>;
+
+// ── Custom (user-added) machines ─────────────────────────────────────────────
+// These are lightweight machine definitions created at runtime.
+// They use the same id format as static machines and work everywhere
+// getMachineById / getAllMachines is called.
+
+export interface CustomMachine {
+  id: string; // slugified, e.g. "custom-lathe-1718000000000"
+  name: string;
+  description: string;
+  image: string | null; // null → show placeholder SVG
+  isCustom: true; // sentinel so consumers can show a "Custom" badge
+}
 
 // ── Per-machine state bundles ─────────────────────────────────────────────────
 
@@ -199,16 +207,6 @@ const DEFAULT_KPI_OUTPUTS: KPIOutputs = {
   quality: null,
   mtbf: null,
   mttr: null,
-};
-
-const DEFAULT_AHP_INPUTS: AHPInputs = {
-  critComparisons: {},
-  altComparisons: {
-    Cost: {},
-    "Long Term Reliability": {},
-    Uptime: {},
-    "Utilization of Technology": {},
-  },
 };
 
 const DEFAULT_CONSISTENCY: ConsistencyResult = {
@@ -285,6 +283,11 @@ interface AppContextType {
   selectedMachineId: string;
   setSelectedMachineId: (id: string) => void;
 
+  // Custom machines (user-added at runtime)
+  customMachines: CustomMachine[];
+  addCustomMachine: (machine: CustomMachine) => void;
+  removeCustomMachine: (id: string) => void;
+
   // KPI — scoped to selected machine
   oeeInputs: OEEInputs;
   setOeeInputs: (inputs: OEEInputs) => void;
@@ -341,32 +344,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedMachineId, setSelectedMachineId] =
     useState(DEFAULT_MACHINE_ID);
 
-  // Per-machine KPI state
+  // ── Custom machines ───────────────────────────────────────────────────────
+  const [customMachines, setCustomMachines] = useState<CustomMachine[]>([]);
+
+  const addCustomMachine = useCallback((machine: CustomMachine) => {
+    setCustomMachines((prev) => [...prev, machine]);
+  }, []);
+
+  const removeCustomMachine = useCallback((id: string) => {
+    setCustomMachines((prev) => prev.filter((m) => m.id !== id));
+    // If the deleted machine was selected, fall back to the default
+    setSelectedMachineId((prev) => (prev === id ? DEFAULT_MACHINE_ID : prev));
+  }, []);
+
+  // ── Per-machine KPI state ─────────────────────────────────────────────────
   const [allKpiStates, setAllKpiStates] = useState<
     Record<string, MachineKPIState>
   >({});
 
-  // Per-machine AHP state
+  // ── Per-machine AHP state ─────────────────────────────────────────────────
   const [allAhpStates, setAllAhpStates] = useState<
     Record<string, MachineAHPState>
   >({});
 
-  // Per-machine spare parts state
+  // ── Per-machine spare parts state ─────────────────────────────────────────
   const [allSparePartsStates, setAllSparePartsStates] = useState<
     Record<string, MachineSparePartsState>
   >({});
 
-  // Custom parts keyed by sparePartsData machineId → CustomSparePart[]
+  // ── Custom parts keyed by sparePartsData machineId ────────────────────────
   const [allCustomSpareParts, setAllCustomSpareParts] =
     useState<AllCustomSpareParts>({});
 
-  // ── Helpers to get current machine's slice (falling back to defaults) ──────
-
+  // ── Helpers to get current machine's slice (falling back to defaults) ─────
   const currentKPI = allKpiStates[selectedMachineId] ?? defaultMachineKPI();
   const currentAHP = allAhpStates[selectedMachineId] ?? defaultMachineAHP();
   const currentSpareParts = allSparePartsStates[selectedMachineId] ?? {};
 
-  // ── KPI setters ──────────────────────────────────────────────────────────
+  // ── KPI setters ───────────────────────────────────────────────────────────
 
   const setOeeInputs = useCallback(
     (inputs: OEEInputs) => {
@@ -435,7 +450,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [selectedMachineId],
   );
 
-  // ── AHP setters ──────────────────────────────────────────────────────────
+  // ── AHP setters ───────────────────────────────────────────────────────────
 
   const setAhpInputs = useCallback(
     (inputs: AHPInputs) => {
@@ -498,7 +513,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Custom spare parts setters ────────────────────────────────────────────
 
-  // Append a fully-formed CustomSparePart to the correct machine bucket
   const addCustomSparePart = useCallback((part: CustomSparePart) => {
     setAllCustomSpareParts((prev) => ({
       ...prev,
@@ -506,7 +520,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  // Update a single editable field on an existing custom part
   const updateCustomSparePart = useCallback(
     (
       partId: string,
@@ -514,7 +527,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value: string | number,
     ) => {
       setAllCustomSpareParts((prev) => {
-        // Find which machine bucket owns this partId
         const machineId = Object.keys(prev).find((mid) =>
           prev[mid].some((p) => p.id === partId),
         );
@@ -530,7 +542,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // Remove a custom part by id + machineId
   const removeCustomSparePart = useCallback(
     (partId: string, machineId: string) => {
       setAllCustomSpareParts((prev) => ({
@@ -546,6 +557,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         selectedMachineId,
         setSelectedMachineId,
+
+        // Custom machines
+        customMachines,
+        addCustomMachine,
+        removeCustomMachine,
 
         // KPI — current machine
         oeeInputs: currentKPI.oeeInputs,

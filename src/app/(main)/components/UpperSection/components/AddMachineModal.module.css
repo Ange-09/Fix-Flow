@@ -1,0 +1,303 @@
+/* ── Backdrop ─────────────────────────────────────────────────────────────── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(13, 31, 17, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Modal shell ──────────────────────────────────────────────────────────── */
+.modal {
+  background: #f7faf7;
+  border: 1px solid #c9d9cc;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(13, 31, 17, 0.18);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: slideUp 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1.5rem 0.75rem;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pageTag {
+  display: inline-flex;
+  align-items: center;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  width: fit-content;
+}
+
+.modalTitle {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0d1f11;
+  letter-spacing: -0.025em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid #c9d9cc;
+  background: #ffffff;
+  color: #4a6b53;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.closeBtn:hover {
+  border-color: #1a5c2a;
+  color: #1a5c2a;
+  background: #e8f0ea;
+}
+
+/* ── Subtitle ─────────────────────────────────────────────────────────────── */
+.modalSubtitle {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.8rem;
+  color: #4a6b53;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 1.5rem 1rem;
+}
+
+/* ── Divider ──────────────────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: #e8f0ea;
+  margin: 0;
+}
+
+/* ── Form body ────────────────────────────────────────────────────────────── */
+.formBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+}
+
+/* ── Field group ──────────────────────────────────────────────────────────── */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: relative;
+}
+
+.fieldLabel {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0d1f11;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.required {
+  color: #ef4444;
+  margin-left: 1px;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+.input,
+.textarea {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #0d1f11;
+  background: #ffffff;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  padding: 0.6rem 0.875rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: #7a9e84;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: #1a5c2a;
+  box-shadow: 0 0 0 3px rgba(26, 92, 42, 0.10);
+}
+
+.inputError {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08) !important;
+}
+
+.errorMsg {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.charCount {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  color: #7a9e84;
+  text-align: right;
+  margin-top: -0.1rem;
+}
+
+/* ── Info callout ─────────────────────────────────────────────────────────── */
+.infoCallout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #d6eedd;
+  border: 1px solid #b8d4bf;
+  border-radius: 8px;
+  padding: 0.65rem 0.875rem;
+}
+
+.infoIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.infoText {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.775rem;
+  color: #1a5c2a;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  padding: 1rem 1.5rem 1.25rem;
+  border-top: 1px solid #e8f0ea;
+}
+
+/* Cancel */
+.cancelBtn {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #4a6b53;
+  background: #ffffff;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.cancelBtn:hover {
+  border-color: #4a6b53;
+  color: #0d1f11;
+}
+
+/* Add */
+.addBtn {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #1a5c2a;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.addBtn:hover {
+  background: #0d3d1f;
+  transform: translateY(-1px);
+}
+
+.addBtn:active {
+  transform: translateY(0);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .modal {
+    max-width: 100%;
+    border-radius: 12px;
+  }
+
+  .modalHeader,
+  .formBody,
+  .modalFooter {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+
+  .modalFooter {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cancelBtn,
+  .addBtn {
+    justify-content: center;
+    width: 100%;
+  }
+}

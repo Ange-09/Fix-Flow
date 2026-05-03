@@ -168,3 +168,58 @@
     font-size: 1.4rem;
   }
 }
+.addMachineBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.875rem;
+  background: #ffffff;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 8px;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1a5c2a;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s,
+    transform 0.1s;
+  width: fit-content;
+}
+
+.addMachineBtn:hover {
+  border-color: #1a5c2a;
+  background: #e8f0ea;
+  transform: translateY(-1px);
+}
+
+.addMachineBtn:active {
+  transform: translateY(0);
+}
+
+/* ── Name + badge row ─────────────────────────────────────────────────────── */
+.nameBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── "Custom" badge on custom machines ────────────────────────────────────── */
+.customBadge {
+  display: inline-flex;
+  align-items: center;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  border: 1px solid #b8d4bf;
+}

@@ -216,15 +216,25 @@ interface DashboardSectionProps {
 
 export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const resolvedId = machineId ?? DEFAULT_MACHINE_ID;
-  const machine: Machine = getMachineById(resolvedId)!;
-  const { spareParts } = machine;
 
   const {
     allKpiStates,
     allAhpStates,
     allSparePartsStates,
     allCustomSpareParts,
+    customMachines,
   } = useAppContext();
+
+  // ── Resolve machine — static OR custom ───────────────────────────────────
+  // getMachineById only searches the static list; custom machines won't be
+  // found there, so we also check customMachines from context.
+  const staticMachine: Machine | undefined = getMachineById(resolvedId);
+  const isCustomMachine =
+    !staticMachine && customMachines.some((m) => m.id === resolvedId);
+
+  // spareParts only exists on static Machine records
+  const spareParts = staticMachine?.spareParts ?? [];
+
   const kpiState = allKpiStates[resolvedId];
   const ahpState = allAhpStates[resolvedId];
   const liveSparePartsState = allSparePartsStates[resolvedId] ?? {};
@@ -276,7 +286,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const mttrStatus: StatusLevel =
     liveMTTR <= 4 ? "good" : liveMTTR <= 8 ? "warn" : "bad";
 
-  // ── AHP ──────────────────────────────────────────────────────────────────
+  // ── AHP ───────────────────────────────────────────────────────────────────
   const ALL_STRATEGY_IDS: AHPStrategyId[] = [
     "predictive",
     "preventive",
@@ -298,7 +308,9 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   );
 
   // ── Spare Parts (critical parts condition) ────────────────────────────────
-  const allParts = spareParts ?? [];
+  // Only static machines have pre-defined spare parts records.
+  // Custom machines start with zero parts — users add them on the Spare Parts page.
+  const allParts = spareParts;
   const totalParts = allParts.length;
   const criticalParts = allParts.filter((p) => p.classification === "Critical");
 
@@ -376,11 +388,19 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const consumableWarnPct = (consumableWarn / consumableTotalSafe) * 100;
   const consumableBadPct = (consumableBad / consumableTotalSafe) * 100;
 
+  // ── If machine can't be resolved at all, bail early ───────────────────────
+  // This guard only fires if somehow an id that belongs to neither list is
+  // passed in — e.g. stale id after a custom machine is removed.
+  if (!staticMachine && !isCustomMachine) return null;
+
   return (
     <section className={styles.dashboardSection}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Dashboard Overview</h2>
         <div className={styles.sectionHeaderRight}>
+          {isCustomMachine && (
+            <span className={styles.customMachineTag}>Custom Machine</span>
+          )}
           {hasLiveKPI && (
             <span className={styles.liveKpiTag}>KPI inputs active</span>
           )}
@@ -626,87 +646,105 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             accent="#7a9e84"
             href="/spare-parts"
           >
-            <StatRow label="Total Parts" value={String(totalParts)} />
-            <StatRow
-              label="Critical Parts"
-              value={String(criticalParts.length)}
-            />
-
-            <div className={styles.sparePartsDivider} />
-
-            <div className={styles.sparePartsConditionGrid}>
-              <div className={styles.sparePartsConditionItem}>
-                <div className={styles.sparePartsConditionTop}>
-                  <span
-                    className={styles.sparePartsConditionDot}
-                    style={{ backgroundColor: "#10b981" }}
-                  />
-                  <span className={styles.sparePartsConditionLabel}>
-                    Normal
-                  </span>
-                </div>
-                <span
-                  className={styles.sparePartsConditionCount}
-                  style={{ color: "#10b981" }}
-                >
-                  {countNormal}
-                </span>
+            {isCustomMachine && totalParts === 0 ? (
+              <div className={styles.ahpEmptyState}>
+                <span className={styles.ahpEmptyIcon}>🔩</span>
+                <p className={styles.ahpEmptyText}>
+                  No spare parts yet. Add parts for this machine on the Spare
+                  Parts page.
+                </p>
               </div>
+            ) : (
+              <>
+                <StatRow label="Total Parts" value={String(totalParts)} />
+                <StatRow
+                  label="Critical Parts"
+                  value={String(criticalParts.length)}
+                />
 
-              <div className={styles.sparePartsConditionItem}>
-                <div className={styles.sparePartsConditionTop}>
-                  <span
-                    className={styles.sparePartsConditionDot}
-                    style={{ backgroundColor: "#f59e0b" }}
-                  />
-                  <span className={styles.sparePartsConditionLabel}>
-                    Early Warning
-                  </span>
-                </div>
-                <span
-                  className={styles.sparePartsConditionCount}
-                  style={{ color: countEarlyWarn > 0 ? "#f59e0b" : "#10b981" }}
-                >
-                  {countEarlyWarn}
-                </span>
-              </div>
+                <div className={styles.sparePartsDivider} />
 
-              <div className={styles.sparePartsConditionItem}>
-                <div className={styles.sparePartsConditionTop}>
-                  <span
-                    className={styles.sparePartsConditionDot}
-                    style={{ backgroundColor: "#f97316" }}
-                  />
-                  <span className={styles.sparePartsConditionLabel}>
-                    Degrading
-                  </span>
-                </div>
-                <span
-                  className={styles.sparePartsConditionCount}
-                  style={{ color: countDegrading > 0 ? "#f97316" : "#10b981" }}
-                >
-                  {countDegrading}
-                </span>
-              </div>
+                <div className={styles.sparePartsConditionGrid}>
+                  <div className={styles.sparePartsConditionItem}>
+                    <div className={styles.sparePartsConditionTop}>
+                      <span
+                        className={styles.sparePartsConditionDot}
+                        style={{ backgroundColor: "#10b981" }}
+                      />
+                      <span className={styles.sparePartsConditionLabel}>
+                        Normal
+                      </span>
+                    </div>
+                    <span
+                      className={styles.sparePartsConditionCount}
+                      style={{ color: "#10b981" }}
+                    >
+                      {countNormal}
+                    </span>
+                  </div>
 
-              <div className={styles.sparePartsConditionItem}>
-                <div className={styles.sparePartsConditionTop}>
-                  <span
-                    className={styles.sparePartsConditionDot}
-                    style={{ backgroundColor: "#ef4444" }}
-                  />
-                  <span className={styles.sparePartsConditionLabel}>
-                    Trigger
-                  </span>
+                  <div className={styles.sparePartsConditionItem}>
+                    <div className={styles.sparePartsConditionTop}>
+                      <span
+                        className={styles.sparePartsConditionDot}
+                        style={{ backgroundColor: "#f59e0b" }}
+                      />
+                      <span className={styles.sparePartsConditionLabel}>
+                        Early Warning
+                      </span>
+                    </div>
+                    <span
+                      className={styles.sparePartsConditionCount}
+                      style={{
+                        color: countEarlyWarn > 0 ? "#f59e0b" : "#10b981",
+                      }}
+                    >
+                      {countEarlyWarn}
+                    </span>
+                  </div>
+
+                  <div className={styles.sparePartsConditionItem}>
+                    <div className={styles.sparePartsConditionTop}>
+                      <span
+                        className={styles.sparePartsConditionDot}
+                        style={{ backgroundColor: "#f97316" }}
+                      />
+                      <span className={styles.sparePartsConditionLabel}>
+                        Degrading
+                      </span>
+                    </div>
+                    <span
+                      className={styles.sparePartsConditionCount}
+                      style={{
+                        color: countDegrading > 0 ? "#f97316" : "#10b981",
+                      }}
+                    >
+                      {countDegrading}
+                    </span>
+                  </div>
+
+                  <div className={styles.sparePartsConditionItem}>
+                    <div className={styles.sparePartsConditionTop}>
+                      <span
+                        className={styles.sparePartsConditionDot}
+                        style={{ backgroundColor: "#ef4444" }}
+                      />
+                      <span className={styles.sparePartsConditionLabel}>
+                        Trigger
+                      </span>
+                    </div>
+                    <span
+                      className={styles.sparePartsConditionCount}
+                      style={{
+                        color: countTrigger > 0 ? "#ef4444" : "#10b981",
+                      }}
+                    >
+                      {countTrigger}
+                    </span>
+                  </div>
                 </div>
-                <span
-                  className={styles.sparePartsConditionCount}
-                  style={{ color: countTrigger > 0 ? "#ef4444" : "#10b981" }}
-                >
-                  {countTrigger}
-                </span>
-              </div>
-            </div>
+              </>
+            )}
           </DashboardCard>
 
           {/* ── Consumables card ── */}
@@ -720,12 +758,13 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
               <div className={styles.ahpEmptyState}>
                 <span className={styles.ahpEmptyIcon}>📦</span>
                 <p className={styles.ahpEmptyText}>
-                  No consumable parts data available for this machine.
+                  {isCustomMachine
+                    ? "No consumables yet. Add parts for this machine on the Consumables page."
+                    : "No consumable parts data available for this machine."}
                 </p>
               </div>
             ) : (
               <>
-                {/* Total count header */}
                 <div className={styles.consumablesTotalRow}>
                   <span className={styles.consumablesTotalLabel}>
                     Total Parts
@@ -735,7 +774,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                   </span>
                 </div>
 
-                {/* Stacked progress bar */}
                 <div className={styles.consumablesStackedBar}>
                   {consumableGood > 0 && (
                     <div
@@ -769,7 +807,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                   )}
                 </div>
 
-                {/* Breakdown rows */}
                 <div className={styles.consumablesBreakdown}>
                   <div className={styles.consumablesBreakdownRow}>
                     <div className={styles.consumablesBreakdownLeft}>
