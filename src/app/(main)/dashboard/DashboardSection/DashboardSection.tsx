@@ -228,8 +228,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   } = useAppContext();
 
   // ── Resolve machine — static OR custom ───────────────────────────────────
-  // getMachineById only searches the static list; custom machines won't be
-  // found there, so we also check customMachines from context.
   const staticMachine: Machine | undefined = getMachineById(resolvedId);
   const isCustomMachine =
     !staticMachine && customMachines.some((m) => m.id === resolvedId);
@@ -309,18 +307,24 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     1,
   );
 
-  // ── Spare Parts (critical parts condition) ────────────────────────────────
-  // Only static machines have pre-defined spare parts records.
-  // Custom machines start with zero parts — users add them on the Spare Parts page.
-  const allParts = spareParts;
-  const totalParts = allParts.length;
-  const criticalParts = allParts.filter((p) => p.classification === "Critical");
+  // ── Critical Spare Parts — static + custom ────────────────────────────────
+  // Static critical parts defined in machineData
+  const criticalParts = spareParts.filter(
+    (p) => p.classification === "Critical",
+  );
+
+  // Custom parts added by the user on the Spare Parts page for this machine
+  // (all custom parts are implicitly critical)
+  const customCriticalParts = allCustomSpareParts[resolvedId] ?? [];
+
+  const totalCriticalParts = criticalParts.length + customCriticalParts.length;
 
   let countNormal = 0;
   let countEarlyWarn = 0;
   let countDegrading = 0;
   let countTrigger = 0;
 
+  // Count static critical parts
   criticalParts.forEach((p) => {
     const liveState = liveSparePartsState[p.id];
     const pDateStr = liveState?.pDate ?? p.defaultPDate;
@@ -337,6 +341,26 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     }
 
     const cond = getConditionStatus(pd, interval);
+    if (cond === "Maintenance Trigger") countTrigger++;
+    else if (cond === "Degrading Condition") countDegrading++;
+    else if (cond === "Early Warning") countEarlyWarn++;
+    else countNormal++;
+  });
+
+  // Count custom critical parts
+  customCriticalParts.forEach((p) => {
+    const liveState = liveSparePartsState[p.id];
+    if (!liveState?.pDate) {
+      countNormal++;
+      return;
+    }
+    const pd = parseDateString(liveState.pDate);
+    if (!pd) {
+      countNormal++;
+      return;
+    }
+
+    const cond = getConditionStatus(pd, liveState.pfInterval);
     if (cond === "Maintenance Trigger") countTrigger++;
     else if (cond === "Degrading Condition") countDegrading++;
     else if (cond === "Early Warning") countEarlyWarn++;
@@ -390,9 +414,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const consumableWarnPct = (consumableWarn / consumableTotalSafe) * 100;
   const consumableBadPct = (consumableBad / consumableTotalSafe) * 100;
 
-  // ── If machine can't be resolved at all, bail early ───────────────────────
-  // This guard only fires if somehow an id that belongs to neither list is
-  // passed in — e.g. stale id after a custom machine is removed.
+  // ── Guard: bail if id belongs to neither static nor custom list ───────────
   if (!staticMachine && !isCustomMachine) return null;
 
   return (
@@ -649,20 +671,19 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             accent="#7a9e84"
             href="/spare-parts"
           >
-            {isCustomMachine && totalParts === 0 ? (
+            {totalCriticalParts === 0 ? (
               <div className={styles.ahpEmptyState}>
                 <span className={styles.ahpEmptyIcon}>🔩</span>
                 <p className={styles.ahpEmptyText}>
-                  No spare parts yet. Add parts for this machine on the Spare
-                  Parts page.
+                  No critical spare parts yet. Add parts on the Spare Parts
+                  page.
                 </p>
               </div>
             ) : (
               <>
-                <StatRow label="Total Parts" value={String(totalParts)} />
                 <StatRow
                   label="Critical Parts"
-                  value={String(criticalParts.length)}
+                  value={String(totalCriticalParts)}
                 />
 
                 <div className={styles.sparePartsDivider} />
