@@ -1,23 +1,17 @@
 "use client";
 
-// app/spare-parts/page.tsx
-// Reads selectedMachineId from AppContext so the table always
-// reflects the machine chosen in UpperSection on the home page.
-// All editable fields (d, L, SS, currentStock) are persisted in
-// AppContext via setSparePartState — no local override state.
-
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import styles from "./page.module.css";
-import { useAppContext } from "@/app/context/AppContext";
+import { useAppContext, type CustomSparePart } from "@/app/context/AppContext";
+import { machines } from "@/app/lib/machineData";
 import {
   getSparePartsByMachine,
   computeROP,
   getStockStatus,
-  type SparePart,
   type StockStatus,
 } from "@/app/lib/sparePartsData";
 
-// ─── ID bridge: machineData id → sparePartsData machineId ────────────────────
+// ── ID bridge ─────────────────────────────────────────────────────────────────
 const MACHINE_ID_MAP: Record<string, string> = {
   "cnc-plasma": "plasma-cutter",
   "cnc-laser": "laser-cutter",
@@ -26,16 +20,6 @@ const MACHINE_ID_MAP: Record<string, string> = {
   "cnc-controller": "cnc-controller",
 };
 
-// ─── Display labels per sparePartsData machineId ─────────────────────────────
-const MACHINE_LABELS: Record<string, string> = {
-  "plasma-cutter": "CNC Plasma Cutting Machine",
-  "laser-cutter": "CNC Laser Cutting Machine",
-  "lathe-machine": "CNC Lathe Machine",
-  "milling-machine": "CNC Milling Machine",
-  "cnc-controller": "CNC Controller",
-};
-
-// ─── Spec column label per sparePartsData machineId ──────────────────────────
 const SPEC_LABEL: Record<string, string> = {
   "plasma-cutter": "Ampere",
   "laser-cutter": "Size",
@@ -44,24 +28,74 @@ const SPEC_LABEL: Record<string, string> = {
   "cnc-controller": "Type",
 };
 
-// ─── Editable row fields (must match SparePartState optional fields) ──────────
-type EditableFields = "d" | "L" | "SS" | "currentStock";
+// ── Blank form state ──────────────────────────────────────────────────────────
+interface PartForm {
+  itemName: string;
+  partNumber: string;
+  spec: string;
+  d: string;
+  L: string;
+  SS: string;
+  currentStock: string;
+}
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+const BLANK_FORM: PartForm = {
+  itemName: "",
+  partNumber: "",
+  spec: "",
+  d: "",
+  L: "",
+  SS: "",
+  currentStock: "",
+};
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function SparePartsPage() {
-  const { selectedMachineId, sparePartsState, setSparePartState } =
-    useAppContext();
-
-  const sparesMachineId =
-    MACHINE_ID_MAP[selectedMachineId] ?? selectedMachineId;
+  const {
+    selectedMachineId,
+    sparePartsState,
+    setSparePartState,
+    allCustomSpareParts,
+    addCustomSparePart,
+    updateCustomSparePart,
+    removeCustomSparePart,
+  } = useAppContext();
 
   const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState<PartForm>(BLANK_FORM);
+  const [errors, setErrors] = useState<Partial<PartForm>>({});
+  const firstInputRef = useRef<HTMLInputElement>(null);
 
-  const machineLabel = MACHINE_LABELS[sparesMachineId] ?? sparesMachineId;
+  // Reset search whenever machine changes
+  useEffect(() => {
+    setSearch("");
+  }, [selectedMachineId]);
+
+  // Focus first field when modal opens
+  useEffect(() => {
+    if (modalOpen) setTimeout(() => firstInputRef.current?.focus(), 50);
+  }, [modalOpen]);
+
+  // Close modal on Escape
+  useEffect(() => {
+    if (!modalOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [modalOpen]);
+
+  // ── Derived IDs / labels ─────────────────────────────────────────────────
+  const sparesMachineId =
+    MACHINE_ID_MAP[selectedMachineId] ?? selectedMachineId;
+  const machineName =
+    machines.find((m) => m.id === selectedMachineId)?.name ?? selectedMachineId;
   const specLabel = SPEC_LABEL[sparesMachineId] ?? "Spec";
 
-  // ── Merge base data with any context-persisted edits ──────────────────────
-  const rows = useMemo(() => {
+  // ── Merged static rows ───────────────────────────────────────────────────
+  const staticRows = useMemo(() => {
     return getSparePartsByMachine(sparesMachineId).map((part) => {
       const saved = sparePartsState[part.id] ?? {};
       return {
@@ -70,43 +104,122 @@ export default function SparePartsPage() {
         L: saved.L ?? part.L,
         SS: saved.SS ?? part.SS,
         currentStock: saved.currentStock ?? part.currentStock,
+        isCustom: false as const,
       };
     });
   }, [sparesMachineId, sparePartsState]);
 
+  // ── Custom rows for this machine ─────────────────────────────────────────
+  const customRows = useMemo(() => {
+    return (allCustomSpareParts[sparesMachineId] ?? []).map((p) => ({
+      ...p,
+      isCustom: true as const,
+    }));
+  }, [sparesMachineId, allCustomSpareParts]);
+
+  // ── Combined + filtered ──────────────────────────────────────────────────
+  const allRows = useMemo(
+    () => [...staticRows, ...customRows],
+    [staticRows, customRows],
+  );
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
+    if (!q) return allRows;
+    return allRows.filter(
       (r) =>
         r.itemName.toLowerCase().includes(q) ||
         r.partNumber.toLowerCase().includes(q) ||
         r.spec.toLowerCase().includes(q),
     );
-  }, [rows, search]);
+  }, [allRows, search]);
 
-  // ── Summary counts ────────────────────────────────────────────────────────
+  // ── Summary ──────────────────────────────────────────────────────────────
   const summary = useMemo(() => {
     let good = 0,
       warn = 0,
       bad = 0;
-    rows.forEach((r) => {
-      const rop = computeROP(r.d, r.L, r.SS);
-      const s = getStockStatus(r.currentStock, rop);
+    allRows.forEach((r) => {
+      const s = getStockStatus(r.currentStock, computeROP(r.d, r.L, r.SS));
       if (s === "good") good++;
       else if (s === "warn") warn++;
       else bad++;
     });
-    return { good, warn, bad, total: rows.length };
-  }, [rows]);
+    return { good, warn, bad, total: allRows.length };
+  }, [allRows]);
 
-  // ── Edit handler — writes directly to context ─────────────────────────────
-  function handleEdit(id: string, field: EditableFields, raw: string) {
+  // ── Edit handlers ─────────────────────────────────────────────────────────
+  function handleEditStatic(
+    id: string,
+    field: "d" | "L" | "SS" | "currentStock",
+    raw: string,
+  ) {
     const val = parseFloat(raw);
     if (isNaN(val) || val < 0) return;
     setSparePartState(id, field, val);
   }
 
+  function handleEditCustom(
+    id: string,
+    field: keyof Omit<CustomSparePart, "id" | "machineId">,
+    raw: string,
+  ) {
+    const numFields = ["d", "L", "SS", "currentStock"] as const;
+    if ((numFields as readonly string[]).includes(field)) {
+      const val = parseFloat(raw);
+      if (isNaN(val) || val < 0) return;
+      updateCustomSparePart(id, field, val);
+    } else {
+      updateCustomSparePart(id, field, raw);
+    }
+  }
+
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+  function closeModal() {
+    setModalOpen(false);
+    setForm(BLANK_FORM);
+    setErrors({});
+  }
+
+  function validateForm(): boolean {
+    const e: Partial<PartForm> = {};
+    if (!form.itemName.trim()) e.itemName = "Item name is required.";
+    if (!form.partNumber.trim()) e.partNumber = "Part number is required.";
+    if (!form.spec.trim()) e.spec = `${specLabel} is required.`;
+    const d = parseFloat(form.d);
+    const L = parseFloat(form.L);
+    const S = parseFloat(form.SS);
+    const cs = parseFloat(form.currentStock);
+    if (isNaN(d) || d < 0) e.d = "Must be ≥ 0.";
+    if (isNaN(L) || L < 0) e.L = "Must be ≥ 0.";
+    if (isNaN(S) || S < 0) e.SS = "Must be ≥ 0.";
+    if (isNaN(cs) || cs < 0) e.currentStock = "Must be ≥ 0.";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function handleSubmit() {
+    if (!validateForm()) return;
+    const newPart: CustomSparePart = {
+      id: `custom-${sparesMachineId}-${Date.now()}`,
+      machineId: sparesMachineId,
+      itemName: form.itemName.trim(),
+      partNumber: form.partNumber.trim(),
+      spec: form.spec.trim(),
+      d: parseFloat(form.d),
+      L: parseFloat(form.L),
+      SS: parseFloat(form.SS),
+      currentStock: parseFloat(form.currentStock),
+    };
+    addCustomSparePart(newPart);
+    closeModal();
+  }
+
+  function setField(field: keyof PartForm, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
       {/* ── Page header ── */}
@@ -118,10 +231,21 @@ export default function SparePartsPage() {
             Monitor stock levels and reorder points for consumable spare parts
             across all machines.{" "}
             <span className={styles.machineHighlight}>
-              Showing: {machineLabel}
+              Showing: {machineName}
             </span>
           </p>
         </div>
+        <button className={styles.addButton} onClick={() => setModalOpen(true)}>
+          <svg viewBox="0 0 16 16" fill="none" className={styles.addButtonIcon}>
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+          Add Part
+        </button>
       </div>
 
       {/* ── Summary cards ── */}
@@ -227,12 +351,13 @@ export default function SparePartsPage() {
                 <span className={styles.thSub}>Current</span>
               </th>
               <th className={styles.thChip}>Status</th>
+              <th className={styles.thActions} />
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {allRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className={styles.emptyRow}>
+                <td colSpan={11} className={styles.emptyRow}>
                   <div className={styles.emptyState}>
                     <svg
                       viewBox="0 0 24 24"
@@ -255,13 +380,19 @@ export default function SparePartsPage() {
                         strokeLinecap="round"
                       />
                     </svg>
-                    No spare parts data for this machine.
+                    No spare parts data for this machine.{" "}
+                    <button
+                      className={styles.emptyAddLink}
+                      onClick={() => setModalOpen(true)}
+                    >
+                      Add the first part →
+                    </button>
                   </div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className={styles.emptyRow}>
+                <td colSpan={11} className={styles.emptyRow}>
                   <div className={styles.emptyState}>
                     <svg
                       viewBox="0 0 24 24"
@@ -305,7 +436,6 @@ export default function SparePartsPage() {
                     key={part.id}
                     className={`${styles.row} ${styles[`row_${status}`]}`}
                   >
-                    {/* Status accent bar */}
                     <td className={styles.tdAccent}>
                       <div
                         className={`${styles.accentBar} ${styles[`accent_${status}`]}`}
@@ -314,6 +444,9 @@ export default function SparePartsPage() {
 
                     <td className={styles.tdItem}>
                       <span className={styles.itemName}>{part.itemName}</span>
+                      {part.isCustom && (
+                        <span className={styles.customBadge}>Custom</span>
+                      )}
                     </td>
 
                     <td className={styles.tdPart}>
@@ -324,7 +457,7 @@ export default function SparePartsPage() {
 
                     <td className={styles.tdSpec}>{part.spec}</td>
 
-                    {/* Editable: d */}
+                    {/* d */}
                     <td className={styles.tdNum}>
                       <input
                         className={styles.cellInput}
@@ -333,12 +466,14 @@ export default function SparePartsPage() {
                         step={1}
                         value={part.d}
                         onChange={(e) =>
-                          handleEdit(part.id, "d", e.target.value)
+                          part.isCustom
+                            ? handleEditCustom(part.id, "d", e.target.value)
+                            : handleEditStatic(part.id, "d", e.target.value)
                         }
                       />
                     </td>
 
-                    {/* Editable: L */}
+                    {/* L */}
                     <td className={styles.tdNum}>
                       <input
                         className={styles.cellInput}
@@ -347,12 +482,14 @@ export default function SparePartsPage() {
                         step={1}
                         value={part.L}
                         onChange={(e) =>
-                          handleEdit(part.id, "L", e.target.value)
+                          part.isCustom
+                            ? handleEditCustom(part.id, "L", e.target.value)
+                            : handleEditStatic(part.id, "L", e.target.value)
                         }
                       />
                     </td>
 
-                    {/* Editable: SS */}
+                    {/* SS */}
                     <td className={styles.tdNum}>
                       <input
                         className={styles.cellInput}
@@ -361,17 +498,19 @@ export default function SparePartsPage() {
                         step={1}
                         value={part.SS}
                         onChange={(e) =>
-                          handleEdit(part.id, "SS", e.target.value)
+                          part.isCustom
+                            ? handleEditCustom(part.id, "SS", e.target.value)
+                            : handleEditStatic(part.id, "SS", e.target.value)
                         }
                       />
                     </td>
 
-                    {/* Auto-computed ROP */}
+                    {/* ROP (computed) */}
                     <td className={styles.tdRop}>
                       <span className={styles.ropBadge}>{rop}</span>
                     </td>
 
-                    {/* Editable: Current Stock */}
+                    {/* Current Stock */}
                     <td className={styles.tdStock}>
                       <input
                         className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
@@ -380,7 +519,17 @@ export default function SparePartsPage() {
                         step={1}
                         value={part.currentStock}
                         onChange={(e) =>
-                          handleEdit(part.id, "currentStock", e.target.value)
+                          part.isCustom
+                            ? handleEditCustom(
+                                part.id,
+                                "currentStock",
+                                e.target.value,
+                              )
+                            : handleEditStatic(
+                                part.id,
+                                "currentStock",
+                                e.target.value,
+                              )
                         }
                       />
                     </td>
@@ -396,6 +545,29 @@ export default function SparePartsPage() {
                             : "Reorder"}
                       </span>
                     </td>
+
+                    {/* Delete — only for custom parts */}
+                    <td className={styles.tdActions}>
+                      {part.isCustom && (
+                        <button
+                          className={styles.deleteButton}
+                          title="Remove custom part"
+                          onClick={() =>
+                            removeCustomSparePart(part.id, sparesMachineId)
+                          }
+                        >
+                          <svg viewBox="0 0 16 16" fill="none">
+                            <path
+                              d="M3 4h10M6 4V3h4v1M5 4l.5 8h5l.5-8"
+                              stroke="currentColor"
+                              strokeWidth="1.3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })
@@ -404,7 +576,6 @@ export default function SparePartsPage() {
         </table>
       </div>
 
-      {/* ── Formula note ── */}
       <div className={styles.formulaNote}>
         <svg viewBox="0 0 16 16" fill="none" className={styles.formulaIcon}>
           <circle
@@ -428,6 +599,246 @@ export default function SparePartsPage() {
           &nbsp;·&nbsp; SS = safety stock
         </span>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          ADD PART MODAL
+      ════════════════════════════════════════════════════════════════ */}
+      {modalOpen && (
+        <div
+          className={styles.modalOverlay}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            {/* Header */}
+            <div className={styles.modalHeader}>
+              <div>
+                <span className={styles.modalTag}>New Entry</span>
+                <h2 className={styles.modalTitle} id="modal-title">
+                  Add Consumable Part
+                </h2>
+                <p className={styles.modalSubtitle}>
+                  Part will be added to <strong>{machineName}</strong>
+                </p>
+              </div>
+              <button
+                className={styles.modalClose}
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                <svg viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M3 3l10 10M13 3L3 13"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className={styles.modalBody}>
+              {/* Row 1: Item Name + Part Number */}
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-itemName">
+                    Item Name <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    ref={firstInputRef}
+                    id="f-itemName"
+                    className={`${styles.formInput} ${errors.itemName ? styles.inputError : ""}`}
+                    placeholder="e.g. Cutting Tip"
+                    value={form.itemName}
+                    onChange={(e) => setField("itemName", e.target.value)}
+                  />
+                  {errors.itemName && (
+                    <span className={styles.errorMsg}>{errors.itemName}</span>
+                  )}
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-partNumber">
+                    Part Number <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    id="f-partNumber"
+                    className={`${styles.formInput} ${errors.partNumber ? styles.inputError : ""}`}
+                    placeholder="e.g. 35-1053"
+                    value={form.partNumber}
+                    onChange={(e) => setField("partNumber", e.target.value)}
+                  />
+                  {errors.partNumber && (
+                    <span className={styles.errorMsg}>{errors.partNumber}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: Spec */}
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-spec">
+                    {specLabel} <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    id="f-spec"
+                    className={`${styles.formInput} ${errors.spec ? styles.inputError : ""}`}
+                    placeholder={
+                      specLabel === "Ampere"
+                        ? "e.g. 100A"
+                        : specLabel === "Size"
+                          ? "e.g. D27.9 x 4.1mm"
+                          : "e.g. Carbide Insert"
+                    }
+                    value={form.spec}
+                    onChange={(e) => setField("spec", e.target.value)}
+                  />
+                  {errors.spec && (
+                    <span className={styles.errorMsg}>{errors.spec}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className={styles.formDivider}>
+                <span>Reorder Point Inputs</span>
+              </div>
+
+              {/* Row 3: d  L  SS */}
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-d">
+                    d — Daily Demand <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    id="f-d"
+                    className={`${styles.formInput} ${errors.d ? styles.inputError : ""}`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="0"
+                    value={form.d}
+                    onChange={(e) => setField("d", e.target.value)}
+                  />
+                  {errors.d && (
+                    <span className={styles.errorMsg}>{errors.d}</span>
+                  )}
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-L">
+                    L — Lead Time (days){" "}
+                    <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    id="f-L"
+                    className={`${styles.formInput} ${errors.L ? styles.inputError : ""}`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="0"
+                    value={form.L}
+                    onChange={(e) => setField("L", e.target.value)}
+                  />
+                  {errors.L && (
+                    <span className={styles.errorMsg}>{errors.L}</span>
+                  )}
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-SS">
+                    SS — Safety Stock <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    id="f-SS"
+                    className={`${styles.formInput} ${errors.SS ? styles.inputError : ""}`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="0"
+                    value={form.SS}
+                    onChange={(e) => setField("SS", e.target.value)}
+                  />
+                  {errors.SS && (
+                    <span className={styles.errorMsg}>{errors.SS}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* ROP preview */}
+              {form.d && form.L && form.SS && (
+                <div className={styles.ropPreview}>
+                  <span className={styles.ropPreviewLabel}>Computed ROP</span>
+                  <span className={styles.ropPreviewValue}>
+                    {(() => {
+                      const d = parseFloat(form.d),
+                        L = parseFloat(form.L),
+                        S = parseFloat(form.SS);
+                      return !isNaN(d) && !isNaN(L) && !isNaN(S)
+                        ? computeROP(d, L, S)
+                        : "—";
+                    })()}
+                  </span>
+                  <span className={styles.ropPreviewFormula}>= d × L + SS</span>
+                </div>
+              )}
+
+              {/* Row 4: Current Stock */}
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="f-stock">
+                    Current Stock <span className={styles.required}>*</span>
+                  </label>
+                  <input
+                    id="f-stock"
+                    className={`${styles.formInput} ${errors.currentStock ? styles.inputError : ""}`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="0"
+                    value={form.currentStock}
+                    onChange={(e) => setField("currentStock", e.target.value)}
+                  />
+                  {errors.currentStock && (
+                    <span className={styles.errorMsg}>
+                      {errors.currentStock}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className={styles.modalFooter}>
+              <button className={styles.cancelButton} onClick={closeModal}>
+                Cancel
+              </button>
+              <button className={styles.submitButton} onClick={handleSubmit}>
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className={styles.submitIcon}
+                >
+                  <path
+                    d="M8 3v10M3 8h10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Add Part
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

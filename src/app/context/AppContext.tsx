@@ -138,6 +138,25 @@ export interface SparePartState {
 // partId → SparePartState
 export type MachineSparePartsState = Record<string, SparePartState>;
 
+// ── Custom (user-added) spare parts ──────────────────────────────────────────
+// Full part records created by the user at runtime.
+// Scoped per machine (sparePartsData machineId) so they appear only for that machine.
+
+export interface CustomSparePart {
+  id: string; // generated: "custom-{machineId}-{timestamp}"
+  machineId: string; // sparePartsData machineId (e.g. "plasma-cutter")
+  itemName: string;
+  partNumber: string;
+  spec: string; // value shown in the Ampere / Size / Type column
+  d: number;
+  L: number;
+  SS: number;
+  currentStock: number;
+}
+
+// sparePartsData machineId → CustomSparePart[]
+export type AllCustomSpareParts = Record<string, CustomSparePart[]>;
+
 // ── Per-machine state bundles ─────────────────────────────────────────────────
 
 export interface MachineKPIState {
@@ -145,7 +164,7 @@ export interface MachineKPIState {
   mtbfInputs: MTBFInputs;
   mttrInputs: MTTRInputs;
   kpiOutputs: KPIOutputs;
-  timeFrame: TimeFrame; // ← added
+  timeFrame: TimeFrame;
 }
 
 export interface MachineAHPState {
@@ -224,7 +243,7 @@ function defaultMachineKPI(): MachineKPIState {
     mtbfInputs: { ...DEFAULT_MTBF_INPUTS },
     mttrInputs: { ...DEFAULT_MTTR_INPUTS },
     kpiOutputs: { ...DEFAULT_KPI_OUTPUTS },
-    timeFrame: "monthly", // ← default period
+    timeFrame: "monthly",
   };
 }
 
@@ -298,6 +317,16 @@ interface AppContextType {
     state: MachineSparePartsState,
   ) => void;
 
+  // Custom (user-added) spare parts — scoped by sparePartsData machineId
+  allCustomSpareParts: AllCustomSpareParts;
+  addCustomSparePart: (part: CustomSparePart) => void;
+  updateCustomSparePart: (
+    partId: string,
+    field: keyof Omit<CustomSparePart, "id" | "machineId">,
+    value: string | number,
+  ) => void;
+  removeCustomSparePart: (partId: string, machineId: string) => void;
+
   // Raw per-machine maps (read by DashboardSection to show any machine's data)
   allKpiStates: Record<string, MachineKPIState>;
   allAhpStates: Record<string, MachineAHPState>;
@@ -312,7 +341,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedMachineId, setSelectedMachineId] =
     useState(DEFAULT_MACHINE_ID);
 
-  // Per-machine KPI state (now includes timeFrame)
+  // Per-machine KPI state
   const [allKpiStates, setAllKpiStates] = useState<
     Record<string, MachineKPIState>
   >({});
@@ -326,6 +355,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [allSparePartsStates, setAllSparePartsStates] = useState<
     Record<string, MachineSparePartsState>
   >({});
+
+  // Custom parts keyed by sparePartsData machineId → CustomSparePart[]
+  const [allCustomSpareParts, setAllCustomSpareParts] =
+    useState<AllCustomSpareParts>({});
 
   // ── Helpers to get current machine's slice (falling back to defaults) ──────
 
@@ -463,6 +496,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // ── Custom spare parts setters ────────────────────────────────────────────
+
+  // Append a fully-formed CustomSparePart to the correct machine bucket
+  const addCustomSparePart = useCallback((part: CustomSparePart) => {
+    setAllCustomSpareParts((prev) => ({
+      ...prev,
+      [part.machineId]: [...(prev[part.machineId] ?? []), part],
+    }));
+  }, []);
+
+  // Update a single editable field on an existing custom part
+  const updateCustomSparePart = useCallback(
+    (
+      partId: string,
+      field: keyof Omit<CustomSparePart, "id" | "machineId">,
+      value: string | number,
+    ) => {
+      setAllCustomSpareParts((prev) => {
+        // Find which machine bucket owns this partId
+        const machineId = Object.keys(prev).find((mid) =>
+          prev[mid].some((p) => p.id === partId),
+        );
+        if (!machineId) return prev;
+        return {
+          ...prev,
+          [machineId]: prev[machineId].map((p) =>
+            p.id === partId ? { ...p, [field]: value } : p,
+          ),
+        };
+      });
+    },
+    [],
+  );
+
+  // Remove a custom part by id + machineId
+  const removeCustomSparePart = useCallback(
+    (partId: string, machineId: string) => {
+      setAllCustomSpareParts((prev) => ({
+        ...prev,
+        [machineId]: (prev[machineId] ?? []).filter((p) => p.id !== partId),
+      }));
+    },
+    [],
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -493,6 +571,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sparePartsState: currentSpareParts,
         setSparePartState,
         setSparePartsStateForMachine,
+
+        // Custom spare parts — all machines
+        allCustomSpareParts,
+        addCustomSparePart,
+        updateCustomSparePart,
+        removeCustomSparePart,
 
         // Raw maps for cross-machine reads (e.g. dashboard)
         allKpiStates,
