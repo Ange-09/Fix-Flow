@@ -16,6 +16,7 @@ import {
   getStockStatus,
 } from "@/app/lib/sparePartsData";
 import styles from "./DashboardSection.module.css";
+import { useMemo } from "react";
 
 // ─── ID bridge: machineData id → sparePartsData machineId ────────────────────
 const MACHINE_ID_MAP: Record<string, string> = {
@@ -218,8 +219,12 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const machine: Machine = getMachineById(resolvedId)!;
   const { spareParts } = machine;
 
-  const { allKpiStates, allAhpStates, allSparePartsStates } = useAppContext();
-
+  const {
+    allKpiStates,
+    allAhpStates,
+    allSparePartsStates,
+    allCustomSpareParts,
+  } = useAppContext();
   const kpiState = allKpiStates[resolvedId];
   const ahpState = allAhpStates[resolvedId];
   const liveSparePartsState = allSparePartsStates[resolvedId] ?? {};
@@ -326,16 +331,31 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
 
   // ── Consumables (ROP-based stock status) ──────────────────────────────────
   const sparesMachineId = MACHINE_ID_MAP[resolvedId] ?? resolvedId;
-  const consumableRows = getSparePartsByMachine(sparesMachineId).map((part) => {
-    const saved = liveSparePartsState[part.id] ?? {};
-    return {
-      ...part,
-      d: (saved as any).d ?? part.d,
-      L: (saved as any).L ?? part.L,
-      SS: (saved as any).SS ?? part.SS,
-      currentStock: (saved as any).currentStock ?? part.currentStock,
-    };
-  });
+
+  const consumableRows = useMemo(() => {
+    const staticRows = getSparePartsByMachine(sparesMachineId).map((part) => {
+      const saved = liveSparePartsState[part.id] ?? {};
+      return {
+        ...part,
+        d: (saved as any).d ?? part.d,
+        L: (saved as any).L ?? part.L,
+        SS: (saved as any).SS ?? part.SS,
+        currentStock: (saved as any).currentStock ?? part.currentStock,
+      };
+    });
+
+    const customRows = (allCustomSpareParts[sparesMachineId] ?? []).map(
+      (p) => ({
+        id: p.id,
+        d: p.d,
+        L: p.L,
+        SS: p.SS,
+        currentStock: p.currentStock,
+      }),
+    );
+
+    return [...staticRows, ...customRows];
+  }, [sparesMachineId, liveSparePartsState, allCustomSpareParts]);
 
   const consumableTotal = consumableRows.length;
   let consumableGood = 0;
