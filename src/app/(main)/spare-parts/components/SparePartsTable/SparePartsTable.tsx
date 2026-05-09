@@ -3,7 +3,12 @@
 import { useMemo, useEffect, useState, useId } from "react";
 import { Machine, SparePart } from "@/app/lib/machineData";
 import { useAppContext, CustomSparePart } from "@/app/context/AppContext";
-import SparePartRow from "../SparePartRow/SparePartRow";
+import SparePartRow, {
+  computeLifeMetrics,
+  formatDateDisplay,
+  LifeStatus,
+} from "../SparePartRow/SparePartRow";
+import RecommendationPanel from "../RecommendationPanel/RecommendationPanel";
 import styles from "./SparePartsTable.module.css";
 
 interface Props {
@@ -29,8 +34,9 @@ const EMPTY_FORM = {
   itemName: "",
   partNumber: "",
   spec: "",
-  d: "",
-  L: "",
+  expectedLife: "",
+  installationDate: "",
+  avgDailyUsage: "",
   SS: "",
   currentStock: "",
 };
@@ -59,14 +65,14 @@ function AddPartModal({ machineId, onClose }: AddPartModalProps) {
     if (!form.itemName.trim()) e.itemName = "Required";
     if (!form.partNumber.trim()) e.partNumber = "Required";
     const numFields: (keyof typeof EMPTY_FORM)[] = [
-      "d",
-      "L",
+      "expectedLife",
+      "avgDailyUsage",
       "SS",
       "currentStock",
     ];
     numFields.forEach((k) => {
       const v = parseFloat(form[k]);
-      if (isNaN(v) || v < 0) e[k] = "Must be ≥ 0";
+      if (isNaN(v) || v <= 0) e[k] = "Must be > 0";
     });
     return e;
   }
@@ -84,8 +90,9 @@ function AddPartModal({ machineId, onClose }: AddPartModalProps) {
       itemName: form.itemName.trim(),
       partNumber: form.partNumber.trim(),
       spec: form.spec.trim(),
-      d: parseFloat(form.d) || 0,
-      L: parseFloat(form.L) || 0,
+      expectedLife: parseFloat(form.expectedLife) || 0,
+      installationDate: form.installationDate,
+      avgDailyUsage: parseFloat(form.avgDailyUsage) || 0,
       SS: parseFloat(form.SS) || 0,
       currentStock: parseFloat(form.currentStock) || 0,
     };
@@ -94,7 +101,6 @@ function AddPartModal({ machineId, onClose }: AddPartModalProps) {
     onClose();
   }
 
-  // Close on backdrop click
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
@@ -160,45 +166,70 @@ function AddPartModal({ machineId, onClose }: AddPartModalProps) {
             </div>
           </div>
 
-          {/* Inventory & Reorder */}
+          {/* Life Parameters */}
           <div className={styles.fieldSection}>
             <p className={styles.fieldSectionTitle}>
-              Inventory &amp; Reorder Parameters
+              Life &amp; Usage Parameters
             </p>
             <div className={styles.fieldRow2}>
               <div className={styles.fieldGroup}>
-                <label className={styles.label} htmlFor={`${uid}-d`}>
-                  Demand Rate <em className={styles.unit}>(units / day)</em>
+                <label className={styles.label} htmlFor={`${uid}-expectedLife`}>
+                  Expected Life <em className={styles.unit}>(hours)</em>
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="0.01"
-                  className={`${styles.input} ${errors.d ? styles.inputError : ""}`}
-                  placeholder="0"
-                  {...field("d")}
+                  min="1"
+                  step="1"
+                  className={`${styles.input} ${errors.expectedLife ? styles.inputError : ""}`}
+                  placeholder="e.g. 8000"
+                  {...field("expectedLife")}
                 />
-                {errors.d && (
-                  <span className={styles.errorMsg}>{errors.d}</span>
+                {errors.expectedLife && (
+                  <span className={styles.errorMsg}>{errors.expectedLife}</span>
                 )}
               </div>
               <div className={styles.fieldGroup}>
-                <label className={styles.label} htmlFor={`${uid}-L`}>
-                  Lead Time <em className={styles.unit}>(days)</em>
+                <label
+                  className={styles.label}
+                  htmlFor={`${uid}-avgDailyUsage`}
+                >
+                  Avg Daily Usage <em className={styles.unit}>(hrs / day)</em>
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1"
-                  className={`${styles.input} ${errors.L ? styles.inputError : ""}`}
-                  placeholder="0"
-                  {...field("L")}
+                  min="0.1"
+                  step="0.1"
+                  className={`${styles.input} ${errors.avgDailyUsage ? styles.inputError : ""}`}
+                  placeholder="e.g. 8"
+                  {...field("avgDailyUsage")}
                 />
-                {errors.L && (
-                  <span className={styles.errorMsg}>{errors.L}</span>
+                {errors.avgDailyUsage && (
+                  <span className={styles.errorMsg}>
+                    {errors.avgDailyUsage}
+                  </span>
                 )}
               </div>
             </div>
+            <div className={styles.fieldRow2}>
+              <div className={styles.fieldGroup}>
+                <label
+                  className={styles.label}
+                  htmlFor={`${uid}-installationDate`}
+                >
+                  Installation Date
+                </label>
+                <input
+                  type="date"
+                  className={styles.input}
+                  {...field("installationDate")}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Inventory */}
+          <div className={styles.fieldSection}>
+            <p className={styles.fieldSectionTitle}>Inventory Parameters</p>
             <div className={styles.fieldRow2}>
               <div className={styles.fieldGroup}>
                 <label className={styles.label} htmlFor={`${uid}-SS`}>
@@ -266,12 +297,10 @@ export default function SparePartsTable({ machine }: Props) {
     removeCustomSparePart,
   } = useAppContext();
 
-  // Only critical static parts
   const staticParts = (machine.spareParts ?? []).filter(
     (p) => p.classification === "Critical",
   );
 
-  // Custom parts for this machine
   const customParts: CustomSparePart[] = allCustomSpareParts[machine.id] ?? [];
 
   // Seed context with static defaults when the machine has no state yet
@@ -280,11 +309,19 @@ export default function SparePartsTable({ machine }: Props) {
       (p) => sparePartsState[p.id] !== undefined,
     );
     if (!hasAnyEntry) {
-      const seed: Record<string, { pDate: string; pfInterval: number }> = {};
+      const seed: Record<
+        string,
+        {
+          installationDate: string;
+          expectedLife: number;
+          avgDailyUsage: number;
+        }
+      > = {};
       staticParts.forEach((p) => {
         seed[p.id] = {
-          pDate: p.defaultPDate ?? "",
-          pfInterval: p.defaultPFInterval ?? 30,
+          installationDate: p.defaultInstallationDate ?? "",
+          expectedLife: p.defaultExpectedLife ?? 8000,
+          avgDailyUsage: p.defaultAvgDailyUsage ?? 8,
         };
       });
       setSparePartsStateForMachine(machine.id, seed);
@@ -294,7 +331,7 @@ export default function SparePartsTable({ machine }: Props) {
 
   function handlePartChange(
     partId: string,
-    field: "pDate" | "pfInterval",
+    field: "installationDate" | "expectedLife" | "avgDailyUsage",
     value: string | number,
   ) {
     setSparePartState(partId, field, value);
@@ -313,12 +350,13 @@ export default function SparePartsTable({ machine }: Props) {
     ];
     allIds.forEach((id) => {
       const state = sparePartsState[id];
-      if (!state?.pDate) return;
-      const { getConditionStatus } = require("@/app/lib/pfCurveUtils");
-      const pDate = new Date(state.pDate + "T00:00:00");
-      if (isNaN(pDate.getTime())) return;
-      const cond = getConditionStatus(pDate, state.pfInterval);
-      counts[cond] = (counts[cond] ?? 0) + 1;
+      if (!state?.installationDate) return;
+      const { status } = computeLifeMetrics(
+        state.installationDate,
+        state.expectedLife,
+        state.avgDailyUsage,
+      );
+      counts[status] = (counts[status] ?? 0) + 1;
     });
     return counts;
   }, [staticParts, customParts, sparePartsState]);
@@ -406,19 +444,20 @@ export default function SparePartsTable({ machine }: Props) {
                   </span>
                 </span>
               </th>
-              <th className={styles.th}>P Date</th>
-              <th className={styles.th}>PF Interval (days)</th>
-              <th className={styles.th}>F Date</th>
+              <th className={styles.th}>Expected Life</th>
+              <th className={styles.th}>Installation Date</th>
+              <th className={styles.th}>Avg Daily Usage</th>
+              <th className={styles.th}>Life Used</th>
+              <th className={styles.th}>% Life Used</th>
               <th className={styles.th} onClick={() => handleSort("condition")}>
                 <span className={styles.thInner}>
-                  Condition{" "}
+                  Status{" "}
                   <span className={styles.sortIcon}>
                     {sortKey === "condition" ? (sortAsc ? "↑" : "↓") : "↕"}
                   </span>
                 </span>
               </th>
               <th className={styles.th}>Recommendations</th>
-              <th className={styles.th}></th>
             </tr>
           </thead>
           <tbody>
@@ -438,7 +477,6 @@ export default function SparePartsTable({ machine }: Props) {
         </table>
       </div>
 
-      {/* Add Part Modal */}
       {showAddModal && (
         <AddPartModal
           machineId={machine.id}
@@ -458,8 +496,12 @@ interface UnifiedPart {
   isCustom: boolean;
   customData?: CustomSparePart;
   staticData?: SparePart;
-  condition: string;
-  state: { pDate: string; pfInterval: number };
+  condition: LifeStatus;
+  state: {
+    installationDate: string;
+    expectedLife: number;
+    avgDailyUsage: number;
+  };
 }
 
 function TableBody({
@@ -474,10 +516,13 @@ function TableBody({
 }: {
   staticParts: SparePart[];
   customParts: CustomSparePart[];
-  partStates: Record<string, { pDate: string; pfInterval: number }>;
+  partStates: Record<
+    string,
+    { installationDate: string; expectedLife: number; avgDailyUsage: number }
+  >;
   onPartChange: (
     id: string,
-    field: "pDate" | "pfInterval",
+    field: "installationDate" | "expectedLife" | "avgDailyUsage",
     value: string | number,
   ) => void;
   onRemoveCustom: (partId: string) => void;
@@ -485,49 +530,60 @@ function TableBody({
   sortKey: SortKey;
   sortAsc: boolean;
 }) {
-  const {
-    getConditionStatus,
-    parseDateString,
-  } = require("@/app/lib/pfCurveUtils");
+  const defaultState = {
+    installationDate: "",
+    expectedLife: 8000,
+    avgDailyUsage: 8,
+  };
 
-  function resolveCondition(
+  function resolveStatus(
     id: string,
-    state: { pDate: string; pfInterval: number },
-  ) {
-    if (!state.pDate) return "Normal";
-    const pDate = parseDateString(state.pDate);
-    if (!pDate) return "Normal";
-    return getConditionStatus(pDate, state.pfInterval);
+    state: {
+      installationDate: string;
+      expectedLife: number;
+      avgDailyUsage: number;
+    },
+  ): LifeStatus {
+    const { status } = computeLifeMetrics(
+      state.installationDate,
+      state.expectedLife,
+      state.avgDailyUsage,
+    );
+    return status;
   }
 
   const unified: UnifiedPart[] = [
     ...staticParts.map((p) => {
-      const state = partStates[p.id] ?? { pDate: "", pfInterval: 30 };
+      const state = partStates[p.id] ?? defaultState;
       return {
         id: p.id,
         name: p.name,
         description: p.description,
         isCustom: false,
         staticData: p,
-        condition: resolveCondition(p.id, state),
+        condition: resolveStatus(p.id, state),
         state,
       } as UnifiedPart;
     }),
     ...customParts.map((p) => {
-      const state = partStates[p.id] ?? { pDate: "", pfInterval: 30 };
+      const state = partStates[p.id] ?? {
+        installationDate: p.installationDate ?? "",
+        expectedLife: p.expectedLife ?? 8000,
+        avgDailyUsage: p.avgDailyUsage ?? 8,
+      };
       return {
         id: p.id,
         name: p.itemName,
         description: p.spec || p.partNumber,
         isCustom: true,
         customData: p,
-        condition: resolveCondition(p.id, state),
+        condition: resolveStatus(p.id, state),
         state,
       } as UnifiedPart;
     }),
   ];
 
-  const conditionOrder: Record<string, number> = {
+  const conditionOrder: Record<LifeStatus, number> = {
     "Maintenance Trigger": 0,
     "Degrading Condition": 1,
     "Early Warning": 2,
@@ -543,8 +599,7 @@ function TableBody({
     let cmp = 0;
     if (sortKey === "name") cmp = a.name.localeCompare(b.name);
     else if (sortKey === "condition")
-      cmp =
-        (conditionOrder[a.condition] ?? 4) - (conditionOrder[b.condition] ?? 4);
+      cmp = conditionOrder[a.condition] - conditionOrder[b.condition];
     return sortAsc ? cmp : -cmp;
   });
 
@@ -552,7 +607,7 @@ function TableBody({
     return (
       <tr>
         <td
-          colSpan={7}
+          colSpan={8}
           style={{
             textAlign: "center",
             padding: "32px",
@@ -590,17 +645,9 @@ function TableBody({
   );
 }
 
-// ── Custom spare part row (inline, no colSpan tricks needed) ──────────────────
+// ── Custom spare part row ─────────────────────────────────────────────────────
 
-import {
-  calculateFDate,
-  getConditionStatus,
-  getElapsedPercentage,
-  parseDateString,
-  formatDate,
-  ConditionStatus,
-} from "@/app/lib/pfCurveUtils";
-import RecommendationPanel from "../RecommendationPanel/RecommendationPanel";
+import styles2 from "../SparePartRow/SparePartRow.module.css";
 
 function CustomSparePartRow({
   part,
@@ -609,10 +656,14 @@ function CustomSparePartRow({
   onRemove,
 }: {
   part: CustomSparePart;
-  partState: { pDate: string; pfInterval: number };
+  partState: {
+    installationDate: string;
+    expectedLife: number;
+    avgDailyUsage: number;
+  };
   onPartChange: (
     id: string,
-    field: "pDate" | "pfInterval",
+    field: "installationDate" | "expectedLife" | "avgDailyUsage",
     value: string | number,
   ) => void;
   onRemove: (id: string) => void;
@@ -620,127 +671,168 @@ function CustomSparePartRow({
   const [showRecs, setShowRecs] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const pDate = parseDateString(partState.pDate);
-  const fDate = pDate ? calculateFDate(pDate, partState.pfInterval) : null;
-  const condition: ConditionStatus = pDate
-    ? getConditionStatus(pDate, partState.pfInterval)
-    : "Normal";
-  const elapsed = pDate ? getElapsedPercentage(pDate, partState.pfInterval) : 0;
+  const { lifeUsedHrs, percentLifeUsed, status, fDateEstimate } =
+    computeLifeMetrics(
+      partState.installationDate,
+      partState.expectedLife,
+      partState.avgDailyUsage,
+    );
 
-  const conditionMeta: Record<ConditionStatus, { label: string; cls: string }> =
-    {
-      Normal: { label: "Normal", cls: styles.statusNormal },
-      "Early Warning": { label: "Early Warning", cls: styles.statusWarn },
-      "Degrading Condition": {
-        label: "Degrading",
-        cls: styles.statusOrange,
-      },
-      "Maintenance Trigger": { label: "Trigger!", cls: styles.statusBad },
-    };
-  const meta = conditionMeta[condition];
+  const hasDate = !!partState.installationDate;
+  const clampedPct = Math.min(100, Math.max(0, percentLifeUsed ?? 0));
 
-  const recsCount =
-    condition === "Normal"
-      ? 3
-      : condition === "Early Warning"
-        ? 7
-        : condition === "Degrading Condition"
-          ? 7
-          : 6;
+  const conditionMeta: Record<LifeStatus, { label: string; cls: string }> = {
+    Normal: { label: "Normal", cls: styles2.statusNormal },
+    "Early Warning": { label: "Early Warning", cls: styles2.statusWarn },
+    "Degrading Condition": { label: "Degrading", cls: styles2.statusOrange },
+    "Maintenance Trigger": { label: "Trigger!", cls: styles2.statusBad },
+  };
+  const meta = conditionMeta[status];
+
+  const recsCountMap: Record<LifeStatus, number> = {
+    Normal: 3,
+    "Early Warning": 7,
+    "Degrading Condition": 7,
+    "Maintenance Trigger": 6,
+  };
 
   return (
     <>
       <tr
-        className={`${styles.row} ${styles.customRow} ${showRecs ? styles.rowActive : ""}`}
+        className={`${styles2.row} ${styles.customRow} ${showRecs ? styles2.rowActive : ""}`}
       >
         {/* Name */}
-        <td className={styles.td}>
-          <div className={styles.partNameRow}>
-            <span className={styles.partName}>{part.itemName}</span>
+        <td className={styles2.td}>
+          <div className={styles2.partName}>
+            {part.itemName}
             <span className={styles.customBadge}>Custom</span>
           </div>
           {(part.spec || part.partNumber) && (
-            <div className={styles.partDesc}>
+            <div className={styles2.partDesc}>
               {part.partNumber}
               {part.spec ? ` — ${part.spec}` : ""}
             </div>
           )}
         </td>
 
-        {/* P Date */}
-        <td className={styles.td}>
-          <input
-            type="date"
-            className={styles.dateInput}
-            value={partState.pDate}
-            onChange={(e) => onPartChange(part.id, "pDate", e.target.value)}
-          />
+        {/* Expected Life */}
+        <td className={styles2.td}>
+          <div className={styles2.inputWrapper}>
+            <input
+              type="number"
+              className={styles2.numInput}
+              value={partState.expectedLife}
+              min={1}
+              onChange={(e) =>
+                onPartChange(
+                  part.id,
+                  "expectedLife",
+                  Math.max(1, parseFloat(e.target.value) || 1),
+                )
+              }
+            />
+            <span className={styles2.inputUnit}>hrs</span>
+          </div>
         </td>
 
-        {/* PF Interval */}
-        <td className={styles.td}>
+        {/* Installation Date */}
+        <td className={styles2.td}>
           <input
-            type="number"
-            className={styles.numInput}
-            value={partState.pfInterval}
-            min={1}
+            type="date"
+            className={styles2.dateInput}
+            value={partState.installationDate}
             onChange={(e) =>
-              onPartChange(
-                part.id,
-                "pfInterval",
-                Math.max(1, parseInt(e.target.value) || 1),
-              )
+              onPartChange(part.id, "installationDate", e.target.value)
             }
           />
         </td>
 
-        {/* F Date */}
-        <td className={styles.td}>
-          {fDate ? (
-            <span className={styles.fDate}>{formatDate(fDate)}</span>
+        {/* Avg Daily Usage */}
+        <td className={styles2.td}>
+          <div className={styles2.inputWrapper}>
+            <input
+              type="number"
+              className={styles2.numInput}
+              value={partState.avgDailyUsage}
+              min={0.1}
+              step={0.1}
+              onChange={(e) =>
+                onPartChange(
+                  part.id,
+                  "avgDailyUsage",
+                  Math.max(0.1, parseFloat(e.target.value) || 0.1),
+                )
+              }
+            />
+            <span className={styles2.inputUnit}>hrs/day</span>
+          </div>
+        </td>
+
+        {/* Life Used */}
+        <td className={styles2.td}>
+          {lifeUsedHrs !== null ? (
+            <span className={styles2.computedVal}>
+              {lifeUsedHrs.toFixed(1)} hrs
+            </span>
           ) : (
-            <span className={styles.naText}>—</span>
+            <span className={styles2.naText}>—</span>
+          )}
+        </td>
+
+        {/* % Life Used */}
+        <td className={styles2.td}>
+          {percentLifeUsed !== null ? (
+            <span className={styles2.computedVal}>
+              {percentLifeUsed.toFixed(1)}%
+            </span>
+          ) : (
+            <span className={styles2.naText}>—</span>
+          )}
+          {fDateEstimate && hasDate && (
+            <div className={styles2.fDateSmall}>
+              F: {formatDateDisplay(fDateEstimate)}
+            </div>
           )}
         </td>
 
         {/* Condition */}
-        <td className={styles.td}>
-          {!pDate ? (
-            <span className={styles.naText}>Set P Date</span>
+        <td className={styles2.td}>
+          {!hasDate ? (
+            <span className={styles2.naText}>Set Install Date</span>
           ) : (
-            <div className={styles.conditionCell}>
-              <span className={`${styles.conditionBadge} ${meta.cls}`}>
+            <div className={styles2.conditionCell}>
+              <span className={`${styles2.conditionBadge} ${meta.cls}`}>
                 {meta.label}
               </span>
-              <div className={styles.progressTrack}>
+              <div className={styles2.progressTrack}>
                 <div
-                  className={`${styles.progressFill} ${meta.cls}`}
-                  style={{ width: `${Math.round(elapsed * 100)}%` }}
+                  className={`${styles2.progressFill} ${meta.cls}`}
+                  style={{ width: `${Math.round(clampedPct)}%` }}
                 />
               </div>
-              <span className={styles.progressPct}>
-                {Math.round(elapsed * 100)}%
+              <span className={styles2.progressPct}>
+                {Math.round(clampedPct)}%
               </span>
             </div>
           )}
         </td>
 
         {/* Recommendations */}
-        <td className={styles.td}>
-          {!pDate ? (
-            <span className={styles.naText}>—</span>
+        <td className={styles2.td}>
+          {!hasDate ? (
+            <span className={styles2.naText}>—</span>
           ) : (
             <button
-              className={`${styles.recsBtn} ${showRecs ? styles.recsBtnActive : ""}`}
+              className={`${styles2.recsBtn} ${showRecs ? styles2.recsBtnActive : ""}`}
               onClick={() => setShowRecs((v) => !v)}
             >
-              {showRecs ? "Hide" : "View"} ({recsCount})
+              {showRecs ? "Hide" : "View"} ({recsCountMap[status]})
             </button>
           )}
         </td>
 
         {/* Delete */}
-        <td className={styles.td}>
+        <td className={styles2.td}>
           {confirmDelete ? (
             <div className={styles.confirmRow}>
               <span className={styles.confirmText}>Remove?</span>
@@ -769,10 +861,10 @@ function CustomSparePartRow({
         </td>
       </tr>
 
-      {showRecs && pDate && (
-        <tr className={styles.recsRow}>
-          <td colSpan={7} className={styles.recsTd}>
-            <RecommendationPanel condition={condition} />
+      {showRecs && hasDate && (
+        <tr className={styles2.recsRow}>
+          <td colSpan={9} className={styles2.recsTd}>
+            <RecommendationPanel condition={status} />
           </td>
         </tr>
       )}

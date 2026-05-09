@@ -1,13 +1,23 @@
 // lib/machineData.ts — single source of truth for all static machine records
 
-// Today = April 28, 2026
-// Condition thresholds: elapsed/pfInterval >= 0.8 → Trigger, >= 0.7 → Degrading, >= 0.6 → Early Warning, else Normal
+// Today = May 9, 2026
 //
-// Formula to target a condition given pfInterval:
-//   Normal          → pDate such that elapsed < 0.60 * pfInterval  → use 0.40 * pfInterval days ago
-//   Early Warning   → elapsed = 0.65 * pfInterval days ago
-//   Degrading       → elapsed = 0.75 * pfInterval days ago
-//   Maintenance Trigger → elapsed = 0.90 * pfInterval days ago
+// New SparePart life model:
+//   inputs : expectedLife (hrs), installationDate ("YYYY-MM-DD"), avgDailyUsage (hrs/day)
+//   process: lifeUsedHrs = daysSinceInstall * avgDailyUsage
+//            percentLifeUsed = lifeUsedHrs / expectedLife * 100
+//   status thresholds:
+//            < 70%  → Normal
+//            ≥ 70%  → Early Warning
+//            ≥ 90%  → Degrading Condition
+//            ≥ 100% → Maintenance Trigger
+//
+// Seeding strategy (avgDailyUsage = 8 hrs/day throughout):
+//   Target Normal (≈40%):           installDate = today − (0.40 * expectedLife / 8) days
+//   Target Early Warning (≈75%):    installDate = today − (0.75 * expectedLife / 8) days
+//   Target Degrading (≈92%):        installDate = today − (0.92 * expectedLife / 8) days
+//   Target Maintenance Trigger(≥100%): installDate = today − (1.05 * expectedLife / 8) days
+
 import type { CustomMachine } from "@/app/context/AppContext";
 
 export type AnyMachine = Machine | CustomMachine;
@@ -32,8 +42,10 @@ export interface SparePart {
   name: string;
   classification: "Critical" | "Consumable";
   description?: string;
-  defaultPDate?: string; // ISO date string YYYY-MM-DD, optional pre-fill
-  defaultPFInterval?: number; // days
+  // Default values used to seed the component's runtime state on first load
+  defaultExpectedLife?: number; // hours
+  defaultInstallationDate?: string; // "YYYY-MM-DD"
+  defaultAvgDailyUsage?: number; // hours per day
 }
 
 export interface OEEData {
@@ -102,6 +114,7 @@ export interface Machine {
 export const DEFAULT_MACHINE_ID = "cnc-plasma";
 
 export const machines: Machine[] = [
+  // ── CNC Plasma Cutting Machine ─────────────────────────────────────────────
   {
     id: "cnc-plasma",
     name: "CNC Plasma Cutting Machine",
@@ -143,50 +156,55 @@ export const machines: Machine[] = [
       technicianAssigned: "J. Santos",
     },
     spareParts: [
-      // Normal:   elapsed = 0.40 * 45 = 18 days ago  → pDate = Apr 10, 2026
+      // Normal (~40%): expectedLife=500hrs, 8hrs/day → days=500/8=62.5 → 40%=25days ago → 2026-04-14
       {
         id: "plasma-001",
         name: "Plasma Torch Electrode",
         classification: "Critical",
         description: "Main current-carrying electrode",
-        defaultPFInterval: 45,
-        defaultPDate: "2026-04-10",
+        defaultExpectedLife: 500,
+        defaultInstallationDate: "2026-04-14",
+        defaultAvgDailyUsage: 8,
       },
-      // Early Warning: elapsed = 0.65 * 30 = 19.5 → 20 days ago → Apr 8, 2026
+      // Early Warning (~75%): expectedLife=500hrs → 75%=46.9days ago → 2026-03-23
       {
         id: "plasma-002",
         name: "Nozzle / Tip",
         classification: "Critical",
         description: "Controls plasma arc shape",
-        defaultPFInterval: 30,
-        defaultPDate: "2026-04-08",
+        defaultExpectedLife: 500,
+        defaultInstallationDate: "2026-03-23",
+        defaultAvgDailyUsage: 8,
       },
-      // Degrading: elapsed = 0.75 * 40 = 30 days ago → Mar 29, 2026
+      // Degrading (~92%): expectedLife=500hrs → 92%=57.5days ago → 2026-03-12
       {
         id: "plasma-003",
         name: "Shield Cap",
         classification: "Critical",
         description: "Protects nozzle from spatter",
-        defaultPFInterval: 40,
-        defaultPDate: "2026-03-29",
+        defaultExpectedLife: 500,
+        defaultInstallationDate: "2026-03-12",
+        defaultAvgDailyUsage: 8,
       },
-      // Maintenance Trigger: elapsed = 0.90 * 180 = 162 days ago → Nov 17, 2025
+      // Maintenance Trigger (≥100%): expectedLife=8000hrs → 105%=1050days ago → 2023-07-23
       {
         id: "plasma-004",
         name: "Drive Motor (X-axis)",
         classification: "Critical",
         description: "CNC gantry X-axis servo motor",
-        defaultPFInterval: 180,
-        defaultPDate: "2025-11-17",
+        defaultExpectedLife: 8000,
+        defaultInstallationDate: "2023-07-23",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 180 = 72 days ago → Feb 15, 2026
+      // Normal (~40%): expectedLife=8000hrs → 40%=400days ago → 2025-04-04
       {
         id: "plasma-005",
         name: "Drive Motor (Y-axis)",
         classification: "Critical",
         description: "CNC gantry Y-axis servo motor",
-        defaultPFInterval: 180,
-        defaultPDate: "2026-02-15",
+        defaultExpectedLife: 8000,
+        defaultInstallationDate: "2025-04-04",
+        defaultAvgDailyUsage: 8,
       },
       {
         id: "plasma-006",
@@ -206,26 +224,30 @@ export const machines: Machine[] = [
         classification: "Consumable",
         description: "Prevents spatter adhesion on bed",
       },
-      // Early Warning: elapsed = 0.65 * 365 = 237 days ago → Sep 3, 2025
+      // Early Warning (~75%): expectedLife=16000hrs → 75%=1500days ago → 2022-02-14
       {
         id: "plasma-009",
         name: "Linear Guide Rail",
         classification: "Critical",
         description: "Gantry guide rail assembly",
-        defaultPFInterval: 365,
-        defaultPDate: "2025-09-03",
+        defaultExpectedLife: 16000,
+        defaultInstallationDate: "2022-02-14",
+        defaultAvgDailyUsage: 8,
       },
-      // Degrading: elapsed = 0.75 * 90 = 67.5 → 68 days ago → Feb 19, 2026
+      // Degrading (~92%): expectedLife=4000hrs → 92%=460days ago → 2025-03-05
       {
         id: "plasma-010",
         name: "Height Control Sensor",
         classification: "Critical",
         description: "Automatic torch height controller",
-        defaultPFInterval: 90,
-        defaultPDate: "2026-02-19",
+        defaultExpectedLife: 4000,
+        defaultInstallationDate: "2025-03-05",
+        defaultAvgDailyUsage: 8,
       },
     ],
   },
+
+  // ── CNC Laser Cutting Machine ──────────────────────────────────────────────
   {
     id: "cnc-laser",
     name: "CNC Laser Cutting Machine",
@@ -267,50 +289,55 @@ export const machines: Machine[] = [
       technicianAssigned: "M. Reyes",
     },
     spareParts: [
-      // Maintenance Trigger: elapsed = 0.90 * 60 = 54 days ago → Mar 5, 2026
+      // Maintenance Trigger (≥100%): expectedLife=2000hrs → 105%=262.5days ago → 2025-08-19
       {
         id: "laser-001",
         name: "Laser Focusing Lens",
         classification: "Critical",
         description: "ZnSe or fused silica focusing optic",
-        defaultPFInterval: 60,
-        defaultPDate: "2026-03-05",
+        defaultExpectedLife: 2000,
+        defaultInstallationDate: "2025-08-19",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 90 = 36 days ago → Mar 23, 2026
+      // Normal (~40%): expectedLife=4000hrs → 40%=200days ago → 2025-10-21
       {
         id: "laser-002",
         name: "Beam Delivery Mirror",
         classification: "Critical",
         description: "Gold-coated reflective mirror",
-        defaultPFInterval: 90,
-        defaultPDate: "2026-03-23",
+        defaultExpectedLife: 4000,
+        defaultInstallationDate: "2025-10-21",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 720 = 288 days ago → Jul 14, 2025
+      // Normal (~40%): expectedLife=20000hrs → 40%=1000days ago → 2023-07-13
       {
         id: "laser-003",
         name: "Laser Source / Tube",
         classification: "Critical",
         description: "CO₂ or fibre laser generator",
-        defaultPFInterval: 720,
-        defaultPDate: "2025-07-14",
+        defaultExpectedLife: 20000,
+        defaultInstallationDate: "2023-07-13",
+        defaultAvgDailyUsage: 8,
       },
-      // Early Warning: elapsed = 0.65 * 30 = 19.5 → 20 days ago → Apr 8, 2026
+      // Early Warning (~75%): expectedLife=1000hrs → 75%=93.75days ago → 2026-02-03
       {
         id: "laser-004",
         name: "Nozzle",
         classification: "Critical",
         description: "Assist gas delivery nozzle",
-        defaultPFInterval: 30,
-        defaultPDate: "2026-04-08",
+        defaultExpectedLife: 1000,
+        defaultInstallationDate: "2026-02-03",
+        defaultAvgDailyUsage: 8,
       },
-      // Degrading: elapsed = 0.75 * 360 = 270 days ago → Aug 1, 2025
+      // Degrading (~92%): expectedLife=12000hrs → 92%=1380days ago → 2022-06-28
       {
         id: "laser-005",
         name: "X/Y Linear Servo Motor",
         classification: "Critical",
         description: "Precision servo drive for cutting head",
-        defaultPFInterval: 360,
-        defaultPDate: "2025-08-01",
+        defaultExpectedLife: 12000,
+        defaultInstallationDate: "2022-06-28",
+        defaultAvgDailyUsage: 8,
       },
       {
         id: "laser-006",
@@ -336,17 +363,20 @@ export const machines: Machine[] = [
         classification: "Consumable",
         description: "Fume extraction system filter",
       },
-      // Maintenance Trigger: elapsed = 0.90 * 180 = 162 days ago → Nov 17, 2025
+      // Maintenance Trigger (≥100%): expectedLife=8000hrs → 105%=1050days ago → 2023-07-23
       {
         id: "laser-010",
         name: "Drive Belt / Rack",
         classification: "Critical",
         description: "Motion transmission belt or gear rack",
-        defaultPFInterval: 180,
-        defaultPDate: "2025-11-17",
+        defaultExpectedLife: 8000,
+        defaultInstallationDate: "2023-07-23",
+        defaultAvgDailyUsage: 8,
       },
     ],
   },
+
+  // ── CNC Lathe Machine ──────────────────────────────────────────────────────
   {
     id: "cnc-lathe",
     name: "CNC Lathe Machine",
@@ -388,50 +418,55 @@ export const machines: Machine[] = [
       technicianAssigned: "R. Cruz",
     },
     spareParts: [
-      // Degrading: elapsed = 0.75 * 180 = 135 days ago → Dec 14, 2025
+      // Degrading (~92%): expectedLife=10000hrs → 92%=1150days ago → 2023-03-15
       {
         id: "lathe-001",
         name: "Spindle Bearing",
         classification: "Critical",
         description: "Main spindle radial/thrust bearing",
-        defaultPFInterval: 180,
-        defaultPDate: "2025-12-14",
+        defaultExpectedLife: 10000,
+        defaultInstallationDate: "2023-03-15",
+        defaultAvgDailyUsage: 8,
       },
-      // Maintenance Trigger: elapsed = 0.90 * 120 = 108 days ago → Jan 10, 2026
+      // Maintenance Trigger (≥100%): expectedLife=5000hrs → 105%=656.25days ago → 2024-07-22
       {
         id: "lathe-002",
         name: "Chuck Jaw Set",
         classification: "Critical",
         description: "3-jaw or 4-jaw workholding jaws",
-        defaultPFInterval: 120,
-        defaultPDate: "2026-01-10",
+        defaultExpectedLife: 5000,
+        defaultInstallationDate: "2024-07-22",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 365 = 146 days ago → Dec 3, 2025
+      // Normal (~40%): expectedLife=16000hrs → 40%=800days ago → 2024-03-05
       {
         id: "lathe-003",
         name: "Turret Indexing Motor",
         classification: "Critical",
         description: "Servo motor for tool turret",
-        defaultPFInterval: 365,
-        defaultPDate: "2025-12-03",
+        defaultExpectedLife: 16000,
+        defaultInstallationDate: "2024-03-05",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 540 = 216 days ago → Sep 24, 2025
+      // Normal (~40%): expectedLife=20000hrs → 40%=1000days ago → 2023-07-13
       {
         id: "lathe-004",
         name: "Ball Screw (Z-axis)",
         classification: "Critical",
         description: "Z-axis lead ball screw",
-        defaultPFInterval: 540,
-        defaultPDate: "2025-09-24",
+        defaultExpectedLife: 20000,
+        defaultInstallationDate: "2023-07-13",
+        defaultAvgDailyUsage: 8,
       },
-      // Early Warning: elapsed = 0.65 * 730 = 474.5 → 475 days ago → Jan 8, 2025
+      // Early Warning (~75%): expectedLife=24000hrs → 75%=2250days ago → 2020-01-15
       {
         id: "lathe-005",
         name: "Encoder (Spindle)",
         classification: "Critical",
         description: "Spindle position encoder",
-        defaultPFInterval: 730,
-        defaultPDate: "2025-01-08",
+        defaultExpectedLife: 24000,
+        defaultInstallationDate: "2020-01-15",
+        defaultAvgDailyUsage: 8,
       },
       {
         id: "lathe-006",
@@ -451,26 +486,30 @@ export const machines: Machine[] = [
         classification: "Consumable",
         description: "Slideway lubrication oil",
       },
-      // Early Warning: elapsed = 0.65 * 360 = 234 days ago → Sep 6, 2025
+      // Early Warning (~75%): expectedLife=12000hrs → 75%=1125days ago → 2023-01-04
       {
         id: "lathe-009",
         name: "V-Belt (Main Drive)",
         classification: "Critical",
         description: "Main spindle drive belt",
-        defaultPFInterval: 360,
-        defaultPDate: "2025-09-06",
+        defaultExpectedLife: 12000,
+        defaultInstallationDate: "2023-01-04",
+        defaultAvgDailyUsage: 8,
       },
-      // Maintenance Trigger: elapsed = 0.90 * 365 = 328.5 → 329 days ago → Jun 3, 2025
+      // Maintenance Trigger (≥100%): expectedLife=16000hrs → 105%=2100days ago → 2020-08-17
       {
         id: "lathe-010",
         name: "Tailstock Quill",
         classification: "Critical",
         description: "Tailstock support quill assembly",
-        defaultPFInterval: 365,
-        defaultPDate: "2025-06-03",
+        defaultExpectedLife: 16000,
+        defaultInstallationDate: "2020-08-17",
+        defaultAvgDailyUsage: 8,
       },
     ],
   },
+
+  // ── CNC Milling Machine ────────────────────────────────────────────────────
   {
     id: "cnc-milling",
     name: "CNC Milling Machine",
@@ -512,50 +551,55 @@ export const machines: Machine[] = [
       technicianAssigned: "L. Garcia",
     },
     spareParts: [
-      // Normal: elapsed = 0.40 * 540 = 216 days ago → Sep 24, 2025
+      // Normal (~40%): expectedLife=20000hrs → 40%=1000days ago → 2023-07-13
       {
         id: "mill-001",
         name: "Spindle Cartridge",
         classification: "Critical",
         description: "High-speed spindle bearing assembly",
-        defaultPFInterval: 540,
-        defaultPDate: "2025-09-24",
+        defaultExpectedLife: 20000,
+        defaultInstallationDate: "2023-07-13",
+        defaultAvgDailyUsage: 8,
       },
-      // Early Warning: elapsed = 0.65 * 180 = 117 days ago → Jan 1, 2026
+      // Early Warning (~75%): expectedLife=8000hrs → 75%=750days ago → 2024-04-24
       {
         id: "mill-002",
         name: "ATC Tool Gripper",
         classification: "Critical",
         description: "Automatic tool changer finger gripper",
-        defaultPFInterval: 180,
-        defaultPDate: "2026-01-01",
+        defaultExpectedLife: 8000,
+        defaultInstallationDate: "2024-04-24",
+        defaultAvgDailyUsage: 8,
       },
-      // Degrading: elapsed = 0.75 * 720 = 540 days ago → Oct 5, 2024
+      // Degrading (~92%): expectedLife=24000hrs → 92%=2760days ago → 2018-10-12
       {
         id: "mill-003",
         name: "Ball Screw (X-axis)",
         classification: "Critical",
         description: "X-axis linear ball screw",
-        defaultPFInterval: 720,
-        defaultPDate: "2024-10-05",
+        defaultExpectedLife: 24000,
+        defaultInstallationDate: "2018-10-12",
+        defaultAvgDailyUsage: 8,
       },
-      // Maintenance Trigger: elapsed = 0.90 * 720 = 648 days ago → Jun 19, 2024
+      // Maintenance Trigger (≥100%): expectedLife=24000hrs → 105%=3150days ago → 2017-09-22
       {
         id: "mill-004",
         name: "Ball Screw (Y-axis)",
         classification: "Critical",
         description: "Y-axis linear ball screw",
-        defaultPFInterval: 720,
-        defaultPDate: "2024-06-19",
+        defaultExpectedLife: 24000,
+        defaultInstallationDate: "2017-09-22",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 1095 = 438 days ago → Feb 24, 2025
+      // Normal (~40%): expectedLife=30000hrs → 40%=1500days ago → 2022-02-14
       {
         id: "mill-005",
         name: "Servo Drive (Z-axis)",
         classification: "Critical",
         description: "Z-axis servo amplifier/drive",
-        defaultPFInterval: 1095,
-        defaultPDate: "2025-02-24",
+        defaultExpectedLife: 30000,
+        defaultInstallationDate: "2022-02-14",
+        defaultAvgDailyUsage: 8,
       },
       {
         id: "mill-006",
@@ -575,26 +619,30 @@ export const machines: Machine[] = [
         classification: "Consumable",
         description: "Pneumatic system filter",
       },
-      // Degrading: elapsed = 0.75 * 720 = 540 days ago → Oct 5, 2024
+      // Degrading (~92%): expectedLife=24000hrs → 92%=2760days ago → 2018-10-12
       {
         id: "mill-009",
         name: "Linear Guide Block",
         classification: "Critical",
         description: "Axis linear guide carriage block",
-        defaultPFInterval: 720,
-        defaultPDate: "2024-10-05",
+        defaultExpectedLife: 24000,
+        defaultInstallationDate: "2018-10-12",
+        defaultAvgDailyUsage: 8,
       },
-      // Early Warning: elapsed = 0.65 * 365 = 237 days ago → Sep 3, 2025
+      // Early Warning (~75%): expectedLife=16000hrs → 75%=1500days ago → 2022-02-14
       {
         id: "mill-010",
         name: "Coolant Pump",
         classification: "Critical",
         description: "Cutting fluid circulation pump",
-        defaultPFInterval: 365,
-        defaultPDate: "2025-09-03",
+        defaultExpectedLife: 16000,
+        defaultInstallationDate: "2022-02-14",
+        defaultAvgDailyUsage: 8,
       },
     ],
   },
+
+  // ── CNC Controller ─────────────────────────────────────────────────────────
   {
     id: "cnc-controller",
     name: "CNC Controller",
@@ -636,59 +684,65 @@ export const machines: Machine[] = [
       technicianAssigned: "E. Villanueva",
     },
     spareParts: [
-      // Normal: elapsed = 0.40 * 1825 = 730 days ago → Apr 28, 2024
+      // Normal (~40%): expectedLife=50000hrs → 40%=2500days ago → 2019-07-28
       {
         id: "ctrl-001",
         name: "CPU / Motherboard Module",
         classification: "Critical",
         description: "Main processing board of the CNC controller",
-        defaultPFInterval: 1825,
-        defaultPDate: "2024-04-28",
+        defaultExpectedLife: 50000,
+        defaultInstallationDate: "2019-07-28",
+        defaultAvgDailyUsage: 8,
       },
-      // Early Warning: elapsed = 0.65 * 1095 = 711.75 → 712 days ago → May 11, 2024
+      // Early Warning (~75%): expectedLife=30000hrs → 75%=2812.5days ago → 2018-07-05
       {
         id: "ctrl-002",
         name: "Servo Drive Module",
         classification: "Critical",
         description: "Axis servo amplifier card",
-        defaultPFInterval: 1095,
-        defaultPDate: "2024-05-11",
+        defaultExpectedLife: 30000,
+        defaultInstallationDate: "2018-07-05",
+        defaultAvgDailyUsage: 8,
       },
-      // Degrading: elapsed = 0.75 * 1095 = 821.25 → 821 days ago → Jan 21, 2024
+      // Degrading (~92%): expectedLife=30000hrs → 92%=3450days ago → 2016-12-22
       {
         id: "ctrl-003",
         name: "I/O Interface Board",
         classification: "Critical",
         description: "Digital/analog I/O expansion board",
-        defaultPFInterval: 1095,
-        defaultPDate: "2024-01-21",
+        defaultExpectedLife: 30000,
+        defaultInstallationDate: "2016-12-22",
+        defaultAvgDailyUsage: 8,
       },
-      // Maintenance Trigger: elapsed = 0.90 * 730 = 657 days ago → Jun 10, 2024
+      // Maintenance Trigger (≥100%): expectedLife=8760hrs → 105%=1148.4days ago → 2023-01-16
       {
         id: "ctrl-004",
         name: "CMOS Battery",
         classification: "Critical",
         description: "Retains parameters on power loss",
-        defaultPFInterval: 730,
-        defaultPDate: "2024-06-10",
+        defaultExpectedLife: 8760,
+        defaultInstallationDate: "2023-01-16",
+        defaultAvgDailyUsage: 8,
       },
-      // Normal: elapsed = 0.40 * 1095 = 438 days ago → Feb 24, 2025
+      // Normal (~40%): expectedLife=30000hrs → 40%=1500days ago → 2022-02-14
       {
         id: "ctrl-005",
         name: "Memory Card / SSD",
         classification: "Critical",
         description: "Program and OS storage media",
-        defaultPFInterval: 1095,
-        defaultPDate: "2025-02-24",
+        defaultExpectedLife: 30000,
+        defaultInstallationDate: "2022-02-14",
+        defaultAvgDailyUsage: 8,
       },
-      // Maintenance Trigger: elapsed = 0.90 * 365 = 328.5 → 329 days ago → Jun 3, 2025
+      // Maintenance Trigger (≥100%): expectedLife=17520hrs → 105%=2296.9days ago → 2019-11-28
       {
         id: "ctrl-006",
         name: "Cooling Fan (Control Cabinet)",
         classification: "Critical",
         description: "Cabinet internal ventilation fan",
-        defaultPFInterval: 365,
-        defaultPDate: "2025-06-03",
+        defaultExpectedLife: 17520,
+        defaultInstallationDate: "2019-11-28",
+        defaultAvgDailyUsage: 8,
       },
       {
         id: "ctrl-007",
@@ -702,23 +756,25 @@ export const machines: Machine[] = [
         classification: "Consumable",
         description: "Electrical protection components",
       },
-      // Early Warning: elapsed = 0.65 * 1095 = 711.75 → 712 days ago → May 11, 2024
+      // Early Warning (~75%): expectedLife=30000hrs → 75%=2812.5days ago → 2018-07-05
       {
         id: "ctrl-009",
         name: "Encoder Cable Set",
         classification: "Critical",
         description: "Shielded encoder signal cables",
-        defaultPFInterval: 1095,
-        defaultPDate: "2024-05-11",
+        defaultExpectedLife: 30000,
+        defaultInstallationDate: "2018-07-05",
+        defaultAvgDailyUsage: 8,
       },
-      // Degrading: elapsed = 0.75 * 730 = 547.5 → 548 days ago → Oct 27, 2024
+      // Degrading (~92%): expectedLife=17520hrs → 92%=2014.8days ago → 2020-10-27
       {
         id: "ctrl-010",
         name: "Power Supply Unit",
         classification: "Critical",
         description: "24 VDC regulated controller PSU",
-        defaultPFInterval: 730,
-        defaultPDate: "2024-10-27",
+        defaultExpectedLife: 17520,
+        defaultInstallationDate: "2020-10-27",
+        defaultAvgDailyUsage: 8,
       },
     ],
   },

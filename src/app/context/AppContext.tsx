@@ -124,14 +124,12 @@ export interface AHPOutputs {
 }
 
 // ── Spare parts state ─────────────────────────────────────────────────────────
+// Each part's runtime state tracks the three user inputs for the life model.
 
 export interface SparePartState {
-  pDate: string;
-  pfInterval: number;
-  d?: number;
-  L?: number;
-  SS?: number;
-  currentStock?: number;
+  installationDate: string; // "YYYY-MM-DD"
+  expectedLife: number; // hours
+  avgDailyUsage: number; // hours per day
 }
 
 export type MachineSparePartsState = Record<string, SparePartState>;
@@ -144,8 +142,11 @@ export interface CustomSparePart {
   itemName: string;
   partNumber: string;
   spec: string;
-  d: number;
-  L: number;
+  // Life parameters
+  expectedLife: number; // hours
+  installationDate: string; // "YYYY-MM-DD"
+  avgDailyUsage: number; // hours per day
+  // Inventory
   SS: number;
   currentStock: number;
 }
@@ -153,16 +154,13 @@ export interface CustomSparePart {
 export type AllCustomSpareParts = Record<string, CustomSparePart[]>;
 
 // ── Custom (user-added) machines ─────────────────────────────────────────────
-// These are lightweight machine definitions created at runtime.
-// They use the same id format as static machines and work everywhere
-// getMachineById / getAllMachines is called.
 
 export interface CustomMachine {
-  id: string; // slugified, e.g. "custom-lathe-1718000000000"
+  id: string;
   name: string;
   description: string;
-  image: string | null; // null → show placeholder SVG
-  isCustom: true; // sentinel so consumers can show a "Custom" badge
+  image: string | null;
+  isCustom: true;
 }
 
 // ── Per-machine state bundles ─────────────────────────────────────────────────
@@ -312,7 +310,7 @@ interface AppContextType {
   sparePartsState: MachineSparePartsState;
   setSparePartState: (
     partId: string,
-    field: "pDate" | "pfInterval" | "d" | "L" | "SS" | "currentStock",
+    field: "installationDate" | "expectedLife" | "avgDailyUsage",
     value: string | number,
   ) => void;
   setSparePartsStateForMachine: (
@@ -320,7 +318,7 @@ interface AppContextType {
     state: MachineSparePartsState,
   ) => void;
 
-  // Custom (user-added) spare parts — scoped by sparePartsData machineId
+  // Custom (user-added) spare parts — scoped by machineId
   allCustomSpareParts: AllCustomSpareParts;
   addCustomSparePart: (part: CustomSparePart) => void;
   updateCustomSparePart: (
@@ -353,7 +351,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const removeCustomMachine = useCallback((id: string) => {
     setCustomMachines((prev) => prev.filter((m) => m.id !== id));
-    // If the deleted machine was selected, fall back to the default
     setSelectedMachineId((prev) => (prev === id ? DEFAULT_MACHINE_ID : prev));
   }, []);
 
@@ -372,11 +369,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     Record<string, MachineSparePartsState>
   >({});
 
-  // ── Custom parts keyed by sparePartsData machineId ────────────────────────
+  // ── Custom parts keyed by machineId ──────────────────────────────────────
   const [allCustomSpareParts, setAllCustomSpareParts] =
     useState<AllCustomSpareParts>({});
 
-  // ── Helpers to get current machine's slice (falling back to defaults) ─────
+  // ── Helpers: current machine slices (fall back to defaults) ──────────────
   const currentKPI = allKpiStates[selectedMachineId] ?? defaultMachineKPI();
   const currentAHP = allAhpStates[selectedMachineId] ?? defaultMachineAHP();
   const currentSpareParts = allSparePartsStates[selectedMachineId] ?? {};
@@ -483,12 +480,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setSparePartState = useCallback(
     (
       partId: string,
-      field: "d" | "L" | "SS" | "currentStock" | "pDate" | "pfInterval",
+      field: "installationDate" | "expectedLife" | "avgDailyUsage",
       value: string | number,
     ) => {
       setAllSparePartsStates((prev) => {
         const machineSlice = prev[selectedMachineId] ?? {};
-        const partSlice = machineSlice[partId] ?? { pDate: "", pfInterval: 30 };
+        const partSlice: SparePartState = machineSlice[partId] ?? {
+          installationDate: "",
+          expectedLife: 8000,
+          avgDailyUsage: 8,
+        };
         return {
           ...prev,
           [selectedMachineId]: {
@@ -558,12 +559,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedMachineId,
         setSelectedMachineId,
 
-        // Custom machines
         customMachines,
         addCustomMachine,
         removeCustomMachine,
 
-        // KPI — current machine
         oeeInputs: currentKPI.oeeInputs,
         setOeeInputs,
         mtbfInputs: currentKPI.mtbfInputs,
@@ -573,28 +572,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kpiOutputs: currentKPI.kpiOutputs,
         setKpiOutputs,
 
-        // Time frame — current machine
         timeFrame: currentKPI.timeFrame,
         setTimeFrame,
 
-        // AHP — current machine
         ahpInputs: currentAHP.ahpInputs,
         setAhpInputs,
         ahpOutputs: currentAHP.ahpOutputs,
         setAhpOutputs,
 
-        // Spare parts — current machine
         sparePartsState: currentSpareParts,
         setSparePartState,
         setSparePartsStateForMachine,
 
-        // Custom spare parts — all machines
         allCustomSpareParts,
         addCustomSparePart,
         updateCustomSparePart,
         removeCustomSparePart,
 
-        // Raw maps for cross-machine reads (e.g. dashboard)
         allKpiStates,
         allAhpStates,
         allSparePartsStates,
