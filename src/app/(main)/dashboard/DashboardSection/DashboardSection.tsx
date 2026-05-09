@@ -9,7 +9,7 @@ import {
 } from "@/app/lib/machineData";
 import { useAppContext, TIME_FRAME_OPTIONS } from "@/app/context/AppContext";
 import type { AHPStrategyId } from "@/app/context/AppContext";
-import { getConditionStatus, parseDateString } from "@/app/lib/pfCurveUtils";
+import { computeLifeMetrics } from "@/app/(main)/spare-parts/components/SparePartRow/SparePartRow";
 import {
   getSparePartsByMachine,
   computeROP,
@@ -210,6 +210,49 @@ function fmtHrs(val: number): string {
   return `${val.toFixed(2)} hrs`;
 }
 
+// ── Spare parts condition counter (new life-hour model) ──────────────────────
+
+interface ConditionCounts {
+  normal: number;
+  earlyWarn: number;
+  degrading: number;
+  trigger: number;
+}
+
+function resolvePartStatus(
+  partId: string,
+  liveState: Record<
+    string,
+    { installationDate: string; expectedLife: number; avgDailyUsage: number }
+  >,
+  defaults: {
+    installationDate?: string;
+    expectedLife?: number;
+    avgDailyUsage?: number;
+  },
+): "Normal" | "Early Warning" | "Degrading Condition" | "Maintenance Trigger" {
+  const state = liveState[partId];
+
+  const installationDate =
+    state?.installationDate ?? defaults.installationDate ?? "";
+  const expectedLife = state?.expectedLife ?? defaults.expectedLife ?? 8000;
+  const avgDailyUsage = state?.avgDailyUsage ?? defaults.avgDailyUsage ?? 8;
+
+  const { status } = computeLifeMetrics(
+    installationDate,
+    expectedLife,
+    avgDailyUsage,
+  );
+  return status;
+}
+
+function bumpCount(counts: ConditionCounts, status: string) {
+  if (status === "Maintenance Trigger") counts.trigger++;
+  else if (status === "Degrading Condition") counts.degrading++;
+  else if (status === "Early Warning") counts.earlyWarn++;
+  else counts.normal++;
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 interface DashboardSectionProps {
@@ -232,7 +275,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   const isCustomMachine =
     !staticMachine && customMachines.some((m) => m.id === resolvedId);
 
-  // spareParts only exists on static Machine records
   const spareParts = staticMachine?.spareParts ?? [];
 
   const kpiState = allKpiStates[resolvedId];
@@ -307,65 +349,43 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     1,
   );
 
-  // ── Critical Spare Parts — static + custom ────────────────────────────────
-  // Static critical parts defined in machineData
+  // ── Critical Spare Parts — life-hour model condition counting ─────────────
   const criticalParts = spareParts.filter(
     (p) => p.classification === "Critical",
   );
-
-  // Custom parts added by the user on the Spare Parts page for this machine
-  // (all custom parts are implicitly critical)
   const customCriticalParts = allCustomSpareParts[resolvedId] ?? [];
-
   const totalCriticalParts = criticalParts.length + customCriticalParts.length;
 
-  let countNormal = 0;
-  let countEarlyWarn = 0;
-  let countDegrading = 0;
-  let countTrigger = 0;
+  const conditionCounts = useMemo<ConditionCounts>(() => {
+    const counts: ConditionCounts = {
+      normal: 0,
+      earlyWarn: 0,
+      degrading: 0,
+      trigger: 0,
+    };
 
-  // Count static critical parts
-  criticalParts.forEach((p) => {
-    const liveState = liveSparePartsState[p.id];
-    const pDateStr = liveState?.pDate ?? p.defaultPDate;
-    const interval = liveState?.pfInterval ?? p.defaultPFInterval;
+    // Static critical parts — use live state, fall back to machineData defaults
+    criticalParts.forEach((p) => {
+      const status = resolvePartStatus(p.id, liveSparePartsState, {
+        installationDate: p.defaultInstallationDate,
+        expectedLife: p.defaultExpectedLife,
+        avgDailyUsage: p.defaultAvgDailyUsage,
+      });
+      bumpCount(counts, status);
+    });
 
-    if (!pDateStr || !interval) {
-      countNormal++;
-      return;
-    }
-    const pd = parseDateString(pDateStr);
-    if (!pd) {
-      countNormal++;
-      return;
-    }
+    // Custom critical parts — use live state, fall back to part's own fields
+    customCriticalParts.forEach((p) => {
+      const status = resolvePartStatus(p.id, liveSparePartsState, {
+        installationDate: p.installationDate,
+        expectedLife: p.expectedLife,
+        avgDailyUsage: p.avgDailyUsage,
+      });
+      bumpCount(counts, status);
+    });
 
-    const cond = getConditionStatus(pd, interval);
-    if (cond === "Maintenance Trigger") countTrigger++;
-    else if (cond === "Degrading Condition") countDegrading++;
-    else if (cond === "Early Warning") countEarlyWarn++;
-    else countNormal++;
-  });
-
-  // Count custom critical parts
-  customCriticalParts.forEach((p) => {
-    const liveState = liveSparePartsState[p.id];
-    if (!liveState?.pDate) {
-      countNormal++;
-      return;
-    }
-    const pd = parseDateString(liveState.pDate);
-    if (!pd) {
-      countNormal++;
-      return;
-    }
-
-    const cond = getConditionStatus(pd, liveState.pfInterval);
-    if (cond === "Maintenance Trigger") countTrigger++;
-    else if (cond === "Degrading Condition") countDegrading++;
-    else if (cond === "Early Warning") countEarlyWarn++;
-    else countNormal++;
-  });
+    return counts;
+  }, [criticalParts, customCriticalParts, liveSparePartsState]);
 
   // ── Consumables (ROP-based stock status) ──────────────────────────────────
   const sparesMachineId = MACHINE_ID_MAP[resolvedId] ?? resolvedId;
@@ -385,8 +405,8 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     const customRows = (allCustomSpareParts[sparesMachineId] ?? []).map(
       (p) => ({
         id: p.id,
-        d: p.d,
-        L: p.L,
+        d: 0,
+        L: 0,
         SS: p.SS,
         currentStock: p.currentStock,
       }),
@@ -408,13 +428,12 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     else consumableBad++;
   });
 
-  // ── Consumable status bar widths ──────────────────────────────────────────
   const consumableTotalSafe = consumableTotal || 1;
   const consumableGoodPct = (consumableGood / consumableTotalSafe) * 100;
   const consumableWarnPct = (consumableWarn / consumableTotalSafe) * 100;
   const consumableBadPct = (consumableBad / consumableTotalSafe) * 100;
 
-  // ── Guard: bail if id belongs to neither static nor custom list ───────────
+  // ── Guard ─────────────────────────────────────────────────────────────────
   if (!staticMachine && !isCustomMachine) return null;
 
   return (
@@ -703,7 +722,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                       className={styles.sparePartsConditionCount}
                       style={{ color: "#10b981" }}
                     >
-                      {countNormal}
+                      {conditionCounts.normal}
                     </span>
                   </div>
 
@@ -720,10 +739,11 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                     <span
                       className={styles.sparePartsConditionCount}
                       style={{
-                        color: countEarlyWarn > 0 ? "#f59e0b" : "#10b981",
+                        color:
+                          conditionCounts.earlyWarn > 0 ? "#f59e0b" : "#10b981",
                       }}
                     >
-                      {countEarlyWarn}
+                      {conditionCounts.earlyWarn}
                     </span>
                   </div>
 
@@ -740,10 +760,11 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                     <span
                       className={styles.sparePartsConditionCount}
                       style={{
-                        color: countDegrading > 0 ? "#f97316" : "#10b981",
+                        color:
+                          conditionCounts.degrading > 0 ? "#f97316" : "#10b981",
                       }}
                     >
-                      {countDegrading}
+                      {conditionCounts.degrading}
                     </span>
                   </div>
 
@@ -760,10 +781,11 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                     <span
                       className={styles.sparePartsConditionCount}
                       style={{
-                        color: countTrigger > 0 ? "#ef4444" : "#10b981",
+                        color:
+                          conditionCounts.trigger > 0 ? "#ef4444" : "#10b981",
                       }}
                     >
-                      {countTrigger}
+                      {conditionCounts.trigger}
                     </span>
                   </div>
                 </div>
