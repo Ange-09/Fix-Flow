@@ -111,6 +111,11 @@ export interface ConsistencyResult {
 
 export type AHPStrategyId = "predictive" | "preventive" | "reactive";
 
+export interface ActionPlan {
+  title: string;
+  steps: string[];
+}
+
 export interface AHPOutputs {
   submitted: boolean;
   scores: Record<AHPStrategyId, number>;
@@ -121,6 +126,7 @@ export interface AHPOutputs {
     ConsistencyResult
   >;
   recommendedStrategy: AHPStrategyId | null;
+  recommendedActionPlan: ActionPlan | null;
 }
 
 // ── Spare parts state ─────────────────────────────────────────────────────────
@@ -233,6 +239,7 @@ const DEFAULT_AHP_OUTPUTS: AHPOutputs = {
   },
   consistency: { criteria: DEFAULT_CONSISTENCY },
   recommendedStrategy: null,
+  recommendedActionPlan: null,
 };
 
 function defaultMachineKPI(): MachineKPIState {
