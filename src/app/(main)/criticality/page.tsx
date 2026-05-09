@@ -3,7 +3,174 @@
 import { useState, useEffect } from "react";
 import styles from "./page.module.css";
 import { useAppContext } from "@/app/context/AppContext";
-import type { AHPFactor, AHPStrategyId } from "@/app/context/AppContext";
+import type {
+  AHPFactor,
+  AHPStrategyId,
+  ActionPlan,
+} from "@/app/context/AppContext";
+// ── Action Plans (inline) ─────────────────────────────────────────────────────
+
+type MachineKey =
+  | "CNC Plasma Cutting Machine"
+  | "CNC Laser Cutting Machine"
+  | "CNC Controller"
+  | "CNC Lathe Machine"
+  | "CNC Milling Machine";
+
+const ACTION_PLANS: Record<MachineKey, Record<AHPStrategyId, ActionPlan>> = {
+  "CNC Plasma Cutting Machine": {
+    preventive: {
+      title: "Schedule inspection intervals",
+      steps: [
+        "Conduct routine cleaning of the plasma cutting system",
+        "Inspect consumable parts (nozzles, electrodes, shields) regularly",
+        "Check torch alignment and cable connections",
+        "Perform scheduled lubrication on moving components",
+      ],
+    },
+    reactive: {
+      title: "Repair damaged components after breakdown",
+      steps: [
+        "Troubleshoot cutting faults immediately upon failure",
+        "Replace damaged torch components as needed",
+        "Conduct corrective maintenance before resuming production",
+      ],
+    },
+    predictive: {
+      title: "Install machine condition monitoring",
+      steps: [
+        "Monitor vibration and cutting performance trends continuously",
+        "Analyze machine performance data for anomalies",
+        "Detect abnormal operating conditions early before failure",
+      ],
+    },
+  },
+  "CNC Laser Cutting Machine": {
+    preventive: {
+      title: "Routine calibration & cleaning",
+      steps: [
+        "Clean and/or replace optical components regularly",
+        "Inspect cooling and ventilation systems for proper function",
+        "Verify beam alignment and machine accuracy",
+      ],
+    },
+    reactive: {
+      title: "Repair faulty machine components upon failure",
+      steps: [
+        "Troubleshoot laser cutting errors immediately",
+        "Replace damaged optical or electrical components",
+        "Restore machine calibration before resuming operations",
+      ],
+    },
+    predictive: {
+      title: "Implement real-time performance monitoring",
+      steps: [
+        "Monitor laser temperature and power fluctuations in real time",
+        "Analyze cutting performance trends over time",
+        "Detect abnormalities before system failure occurs",
+      ],
+    },
+  },
+  "CNC Controller": {
+    preventive: {
+      title: "Conduct scheduled electrical inspections",
+      steps: [
+        "Clean internal electrical components on a scheduled basis",
+        "Inspect wiring and terminals for wear or damage regularly",
+        "Update firmware and run system diagnostics periodically",
+      ],
+    },
+    reactive: {
+      title: "Repair only upon failure",
+      steps: [
+        "Troubleshoot controller and communication faults immediately",
+        "Replace defective electronic components upon failure",
+        "Restore system settings and configurations after repair",
+      ],
+    },
+    predictive: {
+      title: "Monitor controller operational conditions",
+      steps: [
+        "Analyze alarm history and voltage fluctuation patterns",
+        "Monitor controller response performance metrics",
+        "Detect early signs of electronic failure before breakdown",
+      ],
+    },
+  },
+  "CNC Lathe Machine": {
+    preventive: {
+      title: "Schedule lubrication & alignment checks",
+      steps: [
+        "Lubricate spindle and guideways on a regular schedule",
+        "Inspect belts and bearings for wear",
+        "Verify machine alignment and machining accuracy",
+      ],
+    },
+    reactive: {
+      title: "Repair failed machine components",
+      steps: [
+        "Troubleshoot spindle and tooling issues immediately upon failure",
+        "Replace worn mechanical components as needed",
+        "Restore machining precision after repair",
+      ],
+    },
+    predictive: {
+      title: "Install condition monitoring sensors",
+      steps: [
+        "Monitor spindle vibration and bearing temperature continuously",
+        "Analyze machine load trends for abnormal patterns",
+        "Detect abnormal operating conditions early",
+      ],
+    },
+  },
+  "CNC Milling Machine": {
+    preventive: {
+      title: "Perform scheduled machine inspections",
+      steps: [
+        "Clean machine surfaces and coolant systems regularly",
+        "Inspect tool holders and guideways for wear or damage",
+        "Perform lubrication and calibration checks on schedule",
+      ],
+    },
+    reactive: {
+      title: "Repair damaged components after failure",
+      steps: [
+        "Troubleshoot machining errors immediately upon failure",
+        "Replace defective spindle or tooling components",
+        "Conduct corrective maintenance before resuming operation",
+      ],
+    },
+    predictive: {
+      title: "Install condition monitoring",
+      steps: [
+        "Monitor vibration and spindle temperature trends continuously",
+        "Analyze machining performance data for anomalies",
+        "Detect early signs of tool or component wear",
+      ],
+    },
+  },
+};
+
+const MACHINE_NAME_MAP: Record<string, MachineKey> = {
+  "cnc-plasma": "CNC Plasma Cutting Machine",
+  "cnc-laser": "CNC Laser Cutting Machine",
+  "cnc-controller": "CNC Controller",
+  "cnc-lathe": "CNC Lathe Machine",
+  "cnc-milling": "CNC Milling Machine",
+};
+
+function getActionPlan(
+  machineId: string,
+  strategyId: AHPStrategyId,
+): ActionPlan | null {
+  const machineKey = MACHINE_NAME_MAP[machineId];
+  if (!machineKey) return null;
+  return ACTION_PLANS[machineKey]?.[strategyId] ?? null;
+}
+
+function getMachineDisplayName(machineId: string): string {
+  return MACHINE_NAME_MAP[machineId] ?? machineId;
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -37,6 +204,8 @@ const STRATEGIES = [
 
 const SLIDER_STEPS = [9, 7, 5, 3, -3, -5, -7, -9];
 const DEFAULT_COMPARISON_VALUE = -3;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makePairs<T extends string>(items: readonly T[]): [T, T][] {
   const pairs: [T, T][] = [];
@@ -107,15 +276,6 @@ function initAltComparisons(): Record<AHPFactor, Record<string, number>> {
 
 // ── Geometric Mean ────────────────────────────────────────────────────────────
 
-/**
- * For each comparison key, convert every respondent's value to its AHP ratio
- * (negative values become 1/|v|), compute the geometric mean of those ratios,
- * then convert back to the closest SLIDER_STEPS value.
- *
- * Convention kept consistent with buildMatrix:
- *   positive v  → ratio = v
- *   negative v  → ratio = 1 / |v|
- */
 function computeGeometricMeanComparisons(
   allResponses: Record<string, number>[],
 ): Record<string, number> {
@@ -124,18 +284,14 @@ function computeGeometricMeanComparisons(
   const result: Record<string, number> = {};
 
   keys.forEach((key) => {
-    // Convert each respondent value to a positive ratio
     const ratios = allResponses.map((resp) => {
       const v = resp[key];
       return v < 0 ? 1 / Math.abs(v) : v;
     });
 
-    // Geometric mean of ratios
     const product = ratios.reduce((acc, r) => acc * r, 1);
     const geoMean = Math.pow(product, 1 / ratios.length);
 
-    // Convert back to the closest slider step value
-    // geoMean >= 1 → positive step;  geoMean < 1 → negative step (reciprocal)
     const positiveSteps = [3, 5, 7, 9];
     if (geoMean >= 1) {
       const closest = positiveSteps.reduce((best, s) =>
@@ -377,6 +533,66 @@ function ComparisonCard({
   );
 }
 
+// ── Action Plan Card ──────────────────────────────────────────────────────────
+
+interface ActionPlanCardProps {
+  plan: ActionPlan;
+  strategy: (typeof STRATEGIES)[number];
+  machineName: string;
+}
+
+function ActionPlanCard({ plan, strategy, machineName }: ActionPlanCardProps) {
+  return (
+    <div
+      className={styles.actionPlanCard}
+      style={{ borderLeftColor: strategy.color }}
+    >
+      <div className={styles.actionPlanHeader}>
+        <div
+          className={styles.actionPlanIconWrap}
+          style={{ backgroundColor: strategy.color + "18" }}
+        >
+          <span className={styles.actionPlanIcon}>{strategy.icon}</span>
+        </div>
+        <div className={styles.actionPlanMeta}>
+          <span
+            className={styles.actionPlanStrategyTag}
+            style={{
+              color: strategy.color,
+              borderColor: strategy.color + "40",
+              backgroundColor: strategy.color + "0f",
+            }}
+          >
+            {strategy.label}
+          </span>
+          <h3 className={styles.actionPlanTitle}>{plan.title}</h3>
+          <p className={styles.actionPlanMachine}>{machineName}</p>
+        </div>
+      </div>
+
+      <div className={styles.actionPlanSteps}>
+        <span className={styles.actionPlanStepsLabel}>Action Steps</span>
+        <ol className={styles.actionPlanList}>
+          {plan.steps.map((step, i) => (
+            <li key={i} className={styles.actionPlanStep}>
+              <span
+                className={styles.actionPlanStepNum}
+                style={{
+                  backgroundColor: strategy.color + "18",
+                  color: strategy.color,
+                }}
+              >
+                {i + 1}
+              </span>
+              <span className={styles.actionPlanStepText}>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 // ── Respondent Setup Panel ────────────────────────────────────────────────────
 
 interface RespondentSetupProps {
@@ -442,14 +658,12 @@ export default function CriticalityPage() {
   } = useAppContext();
 
   // ── Respondent state ─────────────────────────────────────────────────────────
-  // Phase: "setup" → user enters count | "collecting" → filling respondent responses | "done" → results
   const [phase, setPhase] = useState<"setup" | "collecting" | "done">(
     ahpOutputs.submitted ? "done" : "setup",
   );
   const [totalRespondents, setTotalRespondents] = useState<number>(1);
-  const [currentRespondent, setCurrentRespondent] = useState<number>(0); // 0-indexed
+  const [currentRespondent, setCurrentRespondent] = useState<number>(0);
 
-  // All collected responses (one entry per respondent)
   const [allCritResponses, setAllCritResponses] = useState<
     Record<string, number>[]
   >([]);
@@ -457,21 +671,18 @@ export default function CriticalityPage() {
     Record<AHPFactor, Record<string, number>>[]
   >([]);
 
-  // Current respondent's working comparisons
   const [critComparisons, setCritComparisons] = useState<
     Record<string, number>
   >(initCritComparisons());
   const [altComparisons, setAltComparisons] =
     useState<Record<AHPFactor, Record<string, number>>>(initAltComparisons());
 
-  // Results
   const [submitted, setSubmitted] = useState(ahpOutputs.submitted);
   const [scores, setScores] = useState(ahpOutputs.scores);
   const [critWeights, setCritWeights] = useState(ahpOutputs.critWeights);
   const [localWeights, setLocalWeights] = useState(ahpOutputs.localWeights);
   const [consistency, setConsistency] = useState(ahpOutputs.consistency);
 
-  // Aggregated (geometric mean) comparisons — shown in results
   const [aggregatedCrit, setAggregatedCrit] = useState<Record<string, number>>(
     {},
   );
@@ -525,11 +736,6 @@ export default function CriticalityPage() {
     }));
   }
 
-  /**
-   * Called when a respondent finishes filling in comparisons.
-   * If this is the last respondent, proceed to compute AHP.
-   * Otherwise, advance to the next respondent.
-   */
   function handleNextRespondent() {
     const updatedCritResponses = [...allCritResponses, critComparisons];
     const updatedAltResponses = [...allAltResponses, altComparisons];
@@ -540,7 +746,6 @@ export default function CriticalityPage() {
     const isLast = currentRespondent === totalRespondents - 1;
 
     if (isLast) {
-      // Determine the effective comparisons to feed into AHP
       let effectiveCrit: Record<string, number>;
       let effectiveAlt: Record<AHPFactor, Record<string, number>>;
 
@@ -574,6 +779,7 @@ export default function CriticalityPage() {
         localWeights: result.localWeights,
         consistency: result.consistency,
         recommendedStrategy: recommended,
+        recommendedActionPlan: getActionPlan(selectedMachineId, recommended),
       });
 
       setTimeout(() => {
@@ -582,7 +788,6 @@ export default function CriticalityPage() {
           ?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     } else {
-      // Advance to next respondent with fresh defaults
       setCurrentRespondent(currentRespondent + 1);
       setCritComparisons(initCritComparisons());
       setAltComparisons(initAltComparisons());
@@ -637,6 +842,7 @@ export default function CriticalityPage() {
       },
       consistency: { criteria: { lambdaMax: 0, ci: 0, ri: 0, cr: 0 } },
       recommendedStrategy: null,
+      recommendedActionPlan: null,
     });
   }
 
@@ -653,7 +859,6 @@ export default function CriticalityPage() {
       ]
     : [];
 
-  // Which comparisons to show in the summary tables (aggregated if multi-respondent, else single)
   const displayCrit =
     totalRespondents > 1 && Object.keys(aggregatedCrit).length > 0
       ? aggregatedCrit
@@ -662,6 +867,12 @@ export default function CriticalityPage() {
     totalRespondents > 1 && Object.keys(aggregatedAlt).length > 0
       ? aggregatedAlt
       : (allAltResponses[0] ?? altComparisons);
+
+  // Read the action plan already stored in context (written by handleNextRespondent)
+  const recommendedActionPlan = ahpOutputs.recommendedActionPlan ?? null;
+
+  // Machine display name for the action plan card
+  const machineName = getMachineDisplayName(selectedMachineId);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -689,7 +900,7 @@ export default function CriticalityPage() {
           </div>
         </div>
 
-        {/* ── PHASE: Setup — ask for respondent count ── */}
+        {/* ── PHASE: Setup ── */}
         {phase === "setup" && (
           <RespondentSetup
             respondentCount={totalRespondents}
@@ -697,10 +908,9 @@ export default function CriticalityPage() {
           />
         )}
 
-        {/* ── PHASE: Collecting respondent comparisons ── */}
+        {/* ── PHASE: Collecting ── */}
         {phase === "collecting" && (
           <>
-            {/* Respondent progress banner */}
             <div className={styles.respondentBanner}>
               <div className={styles.respondentBannerLeft}>
                 <span className={styles.respondentBannerLabel}>Respondent</span>
@@ -728,7 +938,6 @@ export default function CriticalityPage() {
               )}
             </div>
 
-            {/* ── Scale Legend ── */}
             <div className={styles.legendCard}>
               <span className={styles.legendTitle}>Saaty Scale Reference</span>
               <div className={styles.legendItems}>
@@ -741,7 +950,6 @@ export default function CriticalityPage() {
               </div>
             </div>
 
-            {/* ══ STEP 1 — Criteria pairwise comparisons ══ */}
             <div className={styles.stepSection}>
               <div className={styles.stepHeader}>
                 <span className={styles.stepPill}>Step 1</span>
@@ -772,7 +980,6 @@ export default function CriticalityPage() {
               </div>
             </div>
 
-            {/* ══ STEP 2 — Alternative comparisons per factor ══ */}
             <div className={styles.stepSection}>
               <div className={styles.stepHeader}>
                 <span className={`${styles.stepPill} ${styles.stepPillGreen}`}>
@@ -817,7 +1024,6 @@ export default function CriticalityPage() {
               ))}
             </div>
 
-            {/* ── Action row ── */}
             <div className={styles.actionRow}>
               <button className={styles.resetBtn} onClick={handleReset}>
                 Start Over
@@ -882,6 +1088,30 @@ export default function CriticalityPage() {
               </div>
             </div>
 
+            {/* ── Recommended Action Plan ── */}
+            {recommendedActionPlan && (
+              <div className={styles.actionPlanSection}>
+                <div className={styles.actionPlanSectionHeader}>
+                  <span className={styles.actionPlanSectionTag}>
+                    Action Plan
+                  </span>
+                  <h2 className={styles.actionPlanSectionTitle}>
+                    Recommended Action Plan
+                  </h2>
+                  <p className={styles.actionPlanSectionDesc}>
+                    Based on the AHP assessment outcome, the following action
+                    plan is prescribed for <strong>{machineName}</strong> under
+                    a <strong>{topStrategy.label}</strong> approach.
+                  </p>
+                </div>
+                <ActionPlanCard
+                  plan={recommendedActionPlan}
+                  strategy={topStrategy}
+                  machineName={machineName}
+                />
+              </div>
+            )}
+
             {/* Full ranking */}
             <div className={styles.rankingList}>
               {rankedStrategies.map((strategy, index) => {
@@ -928,7 +1158,7 @@ export default function CriticalityPage() {
               })}
             </div>
 
-            {/* Respondent breakdown — only shown when multi-respondent */}
+            {/* Respondent breakdown */}
             {totalRespondents > 1 && (
               <div className={styles.summaryCard}>
                 <h3 className={styles.summaryTitle}>
@@ -991,7 +1221,7 @@ export default function CriticalityPage() {
               </div>
             </div>
 
-            {/* Local strategy weights per factor */}
+            {/* Local strategy weights */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>
                 Local Strategy Weights by Criterion
@@ -1089,7 +1319,7 @@ export default function CriticalityPage() {
               </div>
             </div>
 
-            {/* Criteria comparison summary (uses aggregated / geometric mean values) */}
+            {/* Criteria comparison summary */}
             <div className={styles.summaryCard}>
               <h3 className={styles.summaryTitle}>
                 Criteria Comparison Summary
