@@ -49,12 +49,26 @@ const BLANK_FORM: PartForm = {
   currentStock: "",
 };
 
+// ── Consumable row shape ──────────────────────────────────────────────────────
+// A flat, self-contained row used only by this page.
+// Static rows come from sparePartsData; custom rows come from AppContext.
+// Neither source touches SparePartState (which is the critical-parts life model).
+interface ConsumableRow {
+  id: string;
+  itemName: string;
+  partNumber: string;
+  spec: string;
+  d: number;
+  L: number;
+  SS: number;
+  currentStock: number;
+  isCustom: boolean;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default function SparePartsPage() {
+export default function ConsumablesPage() {
   const {
     selectedMachineId,
-    sparePartsState,
-    setSparePartState,
     allCustomSpareParts,
     addCustomSparePart,
     updateCustomSparePart,
@@ -87,42 +101,53 @@ export default function SparePartsPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [modalOpen]);
 
-  // ── Derived IDs / labels ─────────────────────────────────────────────────
+  // ── Derived IDs / labels ──────────────────────────────────────────────────
   const sparesMachineId =
     MACHINE_ID_MAP[selectedMachineId] ?? selectedMachineId;
   const machineName =
     machines.find((m) => m.id === selectedMachineId)?.name ?? selectedMachineId;
   const specLabel = SPEC_LABEL[sparesMachineId] ?? "Spec";
 
-  // ── Merged static rows ───────────────────────────────────────────────────
-  const staticRows = useMemo(() => {
-    return getSparePartsByMachine(sparesMachineId).map((part) => {
-      const saved = sparePartsState[part.id] ?? {};
-      return {
-        ...part,
-        d: saved.d ?? part.d,
-        L: saved.L ?? part.L,
-        SS: saved.SS ?? part.SS,
-        currentStock: saved.currentStock ?? part.currentStock,
-        isCustom: false as const,
-      };
-    });
-  }, [sparesMachineId, sparePartsState]);
+  // ── Static rows — sourced entirely from sparePartsData ────────────────────
+  // These rows already carry d, L, SS, currentStock from the static data file.
+  // We do NOT merge from SparePartState; that state belongs to critical parts only.
+  const staticRows = useMemo<ConsumableRow[]>(() => {
+    return getSparePartsByMachine(sparesMachineId).map((part) => ({
+      id: part.id,
+      itemName: part.itemName,
+      partNumber: part.partNumber,
+      spec: part.spec,
+      d: part.d,
+      L: part.L,
+      SS: part.SS,
+      currentStock: part.currentStock,
+      isCustom: false,
+    }));
+  }, [sparesMachineId]);
 
-  // ── Custom rows for this machine ─────────────────────────────────────────
-  const customRows = useMemo(() => {
+  // ── Custom rows — sourced from AppContext, keyed by sparesMachineId ────────
+  // CustomSparePart carries d, L, SS, currentStock directly on the object.
+  const customRows = useMemo<ConsumableRow[]>(() => {
     return (allCustomSpareParts[sparesMachineId] ?? []).map((p) => ({
-      ...p,
-      isCustom: true as const,
+      id: p.id,
+      itemName: p.itemName,
+      partNumber: p.partNumber,
+      spec: p.spec,
+      d: p.d ?? 0,
+      L: p.L ?? 0,
+      SS: p.SS,
+      currentStock: p.currentStock,
+      isCustom: true,
     }));
   }, [sparesMachineId, allCustomSpareParts]);
 
-  // ── Combined + filtered ──────────────────────────────────────────────────
-  const allRows = useMemo(
+  // ── Combined + filtered ───────────────────────────────────────────────────
+  const allRows = useMemo<ConsumableRow[]>(
     () => [...staticRows, ...customRows],
     [staticRows, customRows],
   );
-  const filtered = useMemo(() => {
+
+  const filtered = useMemo<ConsumableRow[]>(() => {
     const q = search.toLowerCase();
     if (!q) return allRows;
     return allRows.filter(
@@ -133,7 +158,7 @@ export default function SparePartsPage() {
     );
   }, [allRows, search]);
 
-  // ── Summary ──────────────────────────────────────────────────────────────
+  // ── Summary ───────────────────────────────────────────────────────────────
   const summary = useMemo(() => {
     let good = 0,
       warn = 0,
@@ -148,23 +173,23 @@ export default function SparePartsPage() {
   }, [allRows]);
 
   // ── Edit handlers ─────────────────────────────────────────────────────────
-  function handleEditStatic(
-    id: string,
-    field: "d" | "L" | "SS" | "currentStock",
-    raw: string,
-  ) {
-    const val = parseFloat(raw);
-    if (isNaN(val) || val < 0) return;
-    setSparePartState(id, field, val);
-  }
-
+  // Static rows from sparePartsData are read-only by default (no persistent
+  // state store for consumable d/L/SS). If you later add a consumable-specific
+  // state slice, wire it here. For now only custom rows are editable.
   function handleEditCustom(
     id: string,
     field: keyof Omit<CustomSparePart, "id" | "machineId">,
     raw: string,
   ) {
-    const numFields = ["d", "L", "SS", "currentStock"] as const;
-    if ((numFields as readonly string[]).includes(field)) {
+    const numFields: Array<keyof Omit<CustomSparePart, "id" | "machineId">> = [
+      "d",
+      "L",
+      "SS",
+      "currentStock",
+      "expectedLife",
+      "avgDailyUsage",
+    ];
+    if (numFields.includes(field)) {
       const val = parseFloat(raw);
       if (isNaN(val) || val < 0) return;
       updateCustomSparePart(id, field, val);
@@ -205,10 +230,15 @@ export default function SparePartsPage() {
       itemName: form.itemName.trim(),
       partNumber: form.partNumber.trim(),
       spec: form.spec.trim(),
+      // Consumable-specific inventory fields
       d: parseFloat(form.d),
       L: parseFloat(form.L),
       SS: parseFloat(form.SS),
       currentStock: parseFloat(form.currentStock),
+      // Life model fields — not used by consumables, set to neutral defaults
+      expectedLife: 0,
+      installationDate: "",
+      avgDailyUsage: 0,
     };
     addCustomSparePart(newPart);
     closeModal();
@@ -457,81 +487,89 @@ export default function SparePartsPage() {
 
                     <td className={styles.tdSpec}>{part.spec}</td>
 
-                    {/* d */}
+                    {/* d — editable only for custom rows */}
                     <td className={styles.tdNum}>
-                      <input
-                        className={styles.cellInput}
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={part.d}
-                        onChange={(e) =>
-                          part.isCustom
-                            ? handleEditCustom(part.id, "d", e.target.value)
-                            : handleEditStatic(part.id, "d", e.target.value)
-                        }
-                      />
+                      {part.isCustom ? (
+                        <input
+                          className={styles.cellInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.d}
+                          onChange={(e) =>
+                            handleEditCustom(part.id, "d", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span className={styles.staticVal}>{part.d}</span>
+                      )}
                     </td>
 
-                    {/* L */}
+                    {/* L — editable only for custom rows */}
                     <td className={styles.tdNum}>
-                      <input
-                        className={styles.cellInput}
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={part.L}
-                        onChange={(e) =>
-                          part.isCustom
-                            ? handleEditCustom(part.id, "L", e.target.value)
-                            : handleEditStatic(part.id, "L", e.target.value)
-                        }
-                      />
+                      {part.isCustom ? (
+                        <input
+                          className={styles.cellInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.L}
+                          onChange={(e) =>
+                            handleEditCustom(part.id, "L", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span className={styles.staticVal}>{part.L}</span>
+                      )}
                     </td>
 
-                    {/* SS */}
+                    {/* SS — editable only for custom rows */}
                     <td className={styles.tdNum}>
-                      <input
-                        className={styles.cellInput}
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={part.SS}
-                        onChange={(e) =>
-                          part.isCustom
-                            ? handleEditCustom(part.id, "SS", e.target.value)
-                            : handleEditStatic(part.id, "SS", e.target.value)
-                        }
-                      />
+                      {part.isCustom ? (
+                        <input
+                          className={styles.cellInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.SS}
+                          onChange={(e) =>
+                            handleEditCustom(part.id, "SS", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span className={styles.staticVal}>{part.SS}</span>
+                      )}
                     </td>
 
-                    {/* ROP (computed) */}
+                    {/* ROP (computed, always read-only) */}
                     <td className={styles.tdRop}>
                       <span className={styles.ropBadge}>{rop}</span>
                     </td>
 
-                    {/* Current Stock */}
+                    {/* Current Stock — editable only for custom rows */}
                     <td className={styles.tdStock}>
-                      <input
-                        className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={part.currentStock}
-                        onChange={(e) =>
-                          part.isCustom
-                            ? handleEditCustom(
-                                part.id,
-                                "currentStock",
-                                e.target.value,
-                              )
-                            : handleEditStatic(
-                                part.id,
-                                "currentStock",
-                                e.target.value,
-                              )
-                        }
-                      />
+                      {part.isCustom ? (
+                        <input
+                          className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.currentStock}
+                          onChange={(e) =>
+                            handleEditCustom(
+                              part.id,
+                              "currentStock",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      ) : (
+                        <span
+                          className={`${styles.staticVal} ${styles[`stockInput_${status}`]}`}
+                        >
+                          {part.currentStock}
+                        </span>
+                      )}
                     </td>
 
                     <td className={styles.tdChip}>

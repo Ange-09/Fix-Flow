@@ -111,11 +111,6 @@ export interface ConsistencyResult {
 
 export type AHPStrategyId = "predictive" | "preventive" | "reactive";
 
-export interface ActionPlan {
-  title: string;
-  steps: string[];
-}
-
 export interface AHPOutputs {
   submitted: boolean;
   scores: Record<AHPStrategyId, number>;
@@ -126,7 +121,6 @@ export interface AHPOutputs {
     ConsistencyResult
   >;
   recommendedStrategy: AHPStrategyId | null;
-  recommendedActionPlan: ActionPlan | null;
 }
 
 // ── Spare parts state ─────────────────────────────────────────────────────────
@@ -148,11 +142,13 @@ export interface CustomSparePart {
   itemName: string;
   partNumber: string;
   spec: string;
-  // Life parameters
+  // Life parameters (used by critical spare parts)
   expectedLife: number; // hours
   installationDate: string; // "YYYY-MM-DD"
   avgDailyUsage: number; // hours per day
-  // Inventory
+  // Inventory — ROP inputs (used by consumables)
+  d?: number; // daily demand
+  L?: number; // lead time (days)
   SS: number;
   currentStock: number;
 }
@@ -237,7 +233,6 @@ const DEFAULT_AHP_OUTPUTS: AHPOutputs = {
   },
   consistency: { criteria: DEFAULT_CONSISTENCY },
   recommendedStrategy: null,
-  recommendedActionPlan: null,
 };
 
 function defaultMachineKPI(): MachineKPIState {
