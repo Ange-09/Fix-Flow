@@ -210,7 +210,7 @@ function fmtHrs(val: number): string {
   return `${val.toFixed(2)} hrs`;
 }
 
-// ── Spare parts condition counter (new life-hour model) ──────────────────────
+// ── Spare parts condition counter (life-hour model) ──────────────────────────
 
 interface ConditionCounts {
   normal: number;
@@ -267,6 +267,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
     allAhpStates,
     allSparePartsStates,
     allCustomSpareParts,
+    allConsumableOverrides,
     customMachines,
   } = useAppContext();
 
@@ -364,7 +365,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
       trigger: 0,
     };
 
-    // Static critical parts — use live state, fall back to machineData defaults
     criticalParts.forEach((p) => {
       const status = resolvePartStatus(p.id, liveSparePartsState, {
         installationDate: p.defaultInstallationDate,
@@ -374,7 +374,6 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
       bumpCount(counts, status);
     });
 
-    // Custom critical parts — use live state, fall back to part's own fields
     customCriticalParts.forEach((p) => {
       const status = resolvePartStatus(p.id, liveSparePartsState, {
         installationDate: p.installationDate,
@@ -388,32 +387,38 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
   }, [criticalParts, customCriticalParts, liveSparePartsState]);
 
   // ── Consumables (ROP-based stock status) ──────────────────────────────────
+  // Uses allConsumableOverrides for static-row edits — completely separate
+  // from liveSparePartsState which belongs to the critical-parts life model.
   const sparesMachineId = MACHINE_ID_MAP[resolvedId] ?? resolvedId;
+  const machineConsumableOverrides =
+    allConsumableOverrides[sparesMachineId] ?? {};
 
   const consumableRows = useMemo(() => {
+    // Static rows: merge per-part overrides from allConsumableOverrides
     const staticRows = getSparePartsByMachine(sparesMachineId).map((part) => {
-      const saved = liveSparePartsState[part.id] ?? {};
+      const ov = machineConsumableOverrides[part.id] ?? {};
       return {
-        ...part,
-        d: (saved as any).d ?? part.d,
-        L: (saved as any).L ?? part.L,
-        SS: (saved as any).SS ?? part.SS,
-        currentStock: (saved as any).currentStock ?? part.currentStock,
+        id: part.id,
+        d: ov.d ?? part.d,
+        L: ov.L ?? part.L,
+        SS: ov.SS ?? part.SS,
+        currentStock: ov.currentStock ?? part.currentStock,
       };
     });
 
+    // Custom rows: values are stored directly on the custom part object
     const customRows = (allCustomSpareParts[sparesMachineId] ?? []).map(
       (p) => ({
         id: p.id,
-        d: 0,
-        L: 0,
+        d: p.d ?? 0,
+        L: p.L ?? 0,
         SS: p.SS,
         currentStock: p.currentStock,
       }),
     );
 
     return [...staticRows, ...customRows];
-  }, [sparesMachineId, liveSparePartsState, allCustomSpareParts]);
+  }, [sparesMachineId, machineConsumableOverrides, allCustomSpareParts]);
 
   const consumableTotal = consumableRows.length;
   let consumableGood = 0;
