@@ -1,0 +1,473 @@
+/* AllMachinesSummarySection.module.css */
+
+/* ── Section wrapper ─────────────────────────────────────────────────────── */
+.section {
+  width: 80%; /* matches margin: 2.5rem 10% — keeps total at 100vw */
+  margin: 2.5rem 10%;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+/* ── Section header ──────────────────────────────────────────────────────── */
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.sectionHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sectionTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.7rem;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.sectionTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0d1f11;
+  margin: 0;
+}
+
+.sectionSubtitle {
+  font-size: 0.82rem;
+  color: #4a6b53;
+  margin: 0;
+  font-weight: 400;
+}
+
+.sectionHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.machineCount {
+  padding: 0.3rem 0.75rem;
+  background: #e8f0ea;
+  color: #1a5c2a;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 1px solid #c9d9cc;
+}
+
+/* ── Table wrapper ───────────────────────────────────────────────────────── */
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #c9d9cc;
+  box-shadow: 0 1px 4px rgba(13, 31, 17, 0.05);
+  background: #f7faf7;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+/* ── Table head ──────────────────────────────────────────────────────────── */
+.thead {
+  background: #e8f0ea;
+  border-bottom: 1.5px solid #c9d9cc;
+}
+
+.th {
+  padding: 0.65rem 0.6rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a6b53;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+  Column widths — 7 columns filling 100% of the 80vw (.section width: 80%):
+  Machine 15% | Strategy 17% | OEE 8% | MTBF 8% | MTTR 8% | Crit Parts 24% | Consumables 20%
+  Total = 15 + 17 + 8 + 8 + 8 + 24 + 20 = 100%
+*/
+.thMachine {
+  width: 15%;
+  border-right: 1.5px solid #c9d9cc;
+}
+.thStrategy {
+  width: 17%;
+}
+.thKpi {
+  width: 8%;
+}
+.thParts {
+  width: 24%;
+  border-left: 1.5px solid #c9d9cc;
+}
+.thCons {
+  width: 20%;
+  border-left: 1px solid #e8f0ea;
+}
+
+/* ── Machine rows ────────────────────────────────────────────────────────── */
+.machineRow {
+  border-bottom: 1px solid #e8f0ea;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.machineRow:last-child {
+  border-bottom: none;
+}
+
+.machineRow:hover {
+  background: #f0f4f1;
+}
+
+.machineRow:focus-visible {
+  outline: 2px solid #1a5c2a;
+  outline-offset: -2px;
+}
+
+/* ── Table cells ─────────────────────────────────────────────────────────── */
+.td {
+  padding: 0.75rem 0.6rem;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.tdMachine {
+  border-right: 1.5px solid #c9d9cc;
+  background: #f0f4f1;
+}
+
+.tdStrategy {
+  /* intentional */
+}
+
+.tdKpi {
+  text-align: left;
+}
+
+.tdParts {
+  border-left: 1.5px solid #c9d9cc;
+}
+
+.tdCons {
+  border-left: 1px solid #e8f0ea;
+}
+
+/* ── Machine cell ────────────────────────────────────────────────────────── */
+.machineCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.machineNameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.machineName {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0d1f11;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.customBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #d6eedd;
+  color: #1a5c2a;
+  border: 1px solid #b8d4be;
+  flex-shrink: 0;
+}
+
+.machineIdChip {
+  font-size: 0.63rem;
+  font-weight: 500;
+  color: #7a9e84;
+  font-family: "Sora", monospace;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+}
+
+/* ── Strategy cell ───────────────────────────────────────────────────────── */
+.strategyCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.strategyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 7px;
+  border: 1.5px solid;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.strategyIcon {
+  font-size: 0.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.strategyLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strategyScore {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding-left: 0.1rem;
+}
+
+/* ── KPI cell ────────────────────────────────────────────────────────────── */
+.kpiCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.kpiValue {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0d1f11;
+  white-space: nowrap;
+}
+
+.kpiPeriod {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: #7a9e84;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Status colors ───────────────────────────────────────────────────────── */
+.good {
+  color: #10b981;
+}
+.warn {
+  color: #f59e0b;
+}
+.bad {
+  color: #ef4444;
+}
+
+/* ── Parts / consumables cell ────────────────────────────────────────────── */
+.partsCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.partsTotalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.partsTotalLabel {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #7a9e84;
+}
+
+.partsTotalValue {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0d1f11;
+}
+
+.partsStackBar {
+  display: flex;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e8f0ea;
+  gap: 1px;
+}
+
+.partsSegment {
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.partsBreakdown {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+/* ── Condition chip ──────────────────────────────────────────────────────── */
+.condChip {
+  display: flex;
+  align-items: center;
+  gap: 0.18rem;
+  transition: opacity 0.2s;
+}
+
+.condDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.condLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #4a6b53;
+  text-transform: uppercase;
+}
+
+.condCount {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* ── Empty cell ──────────────────────────────────────────────────────────── */
+.emptyCell {
+  font-size: 0.75rem;
+  color: #7a9e84;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+  padding: 0.65rem 1rem;
+  background: #f7faf7;
+  border: 1px solid #e8f0ea;
+  border-radius: 10px;
+}
+
+.legendTitle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4a6b53;
+  flex-shrink: 0;
+}
+
+.legendGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.legendGroupLabel {
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: #0d1f11;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.legendDivider {
+  width: 1px;
+  height: 1rem;
+  background: #c9d9cc;
+  flex-shrink: 0;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.legendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legendLabel {
+  font-size: 0.67rem;
+  font-weight: 500;
+  color: #4a6b53;
+  white-space: nowrap;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .section {
+    width: 100%;
+    margin: 1.5rem 0;
+    padding: 0 1rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.25rem;
+  }
+
+  .tableWrapper {
+    border-radius: 10px;
+    overflow-x: auto;
+  }
+
+  .table {
+    table-layout: auto;
+    min-width: 700px;
+  }
+
+  .legend {
+    gap: 0.5rem;
+  }
+
+  .legendDivider {
+    display: none;
+  }
+}

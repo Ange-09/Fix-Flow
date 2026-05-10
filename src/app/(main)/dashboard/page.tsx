@@ -3,6 +3,7 @@
 import { useAppContext } from "@/app/context/AppContext";
 
 import DashboardSection from "./DashboardSection/DashboardSection";
+import AllMachinesSummarySection from "./summary/AllMachinesSummarySection";
 import styles from "./styles/page.module.css";
 
 export default function HomePage() {
@@ -12,6 +13,7 @@ export default function HomePage() {
     <div className={styles.page}>
       <main className={styles.main}>
         <DashboardSection machineId={selectedMachineId} />
+        <AllMachinesSummarySection />
       </main>
     </div>
   );
