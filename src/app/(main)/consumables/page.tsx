@@ -84,9 +84,15 @@ export default function ConsumablesPage() {
   const [errors, setErrors] = useState<Partial<PartForm>>({});
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset search whenever machine changes
+  // Draft values buffer — holds raw strings while the user is typing so that
+  // backspace/delete works freely. Key format: `${partId}__${field}`.
+  // Values are committed (parsed → number) to context on blur.
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+
+  // Reset search + drafts whenever machine changes
   useEffect(() => {
     setSearch("");
+    setDraftValues({});
   }, [selectedMachineId]);
 
   // Focus first field when modal opens
@@ -179,40 +185,57 @@ export default function ConsumablesPage() {
     return { good, warn, bad, total: allRows.length };
   }, [allRows]);
 
-  // ── Edit handlers ─────────────────────────────────────────────────────────
+  // ── Draft helpers ─────────────────────────────────────────────────────────
 
-  // Static rows: write to consumable overrides in context
-  function handleEditStatic(
+  function draftKey(id: string, field: string) {
+    return `${id}__${field}`;
+  }
+
+  // Returns the raw string for a cell — the in-progress draft if one exists,
+  // otherwise the stringified numeric value from state.
+  function getDraft(id: string, field: string, numeric: number): string {
+    const key = draftKey(id, field);
+    return key in draftValues ? draftValues[key] : String(numeric);
+  }
+
+  // Called on every onChange — just update the draft string, don't touch context.
+  function handleDraftChange(id: string, field: string, raw: string) {
+    setDraftValues((prev) => ({ ...prev, [draftKey(id, field)]: raw }));
+  }
+
+  // Clears a draft key so the input falls back to displaying the committed value.
+  function clearDraft(id: string, field: string) {
+    setDraftValues((prev) => {
+      const next = { ...prev };
+      delete next[draftKey(id, field)];
+      return next;
+    });
+  }
+
+  // ── Blur commit handlers ──────────────────────────────────────────────────
+
+  // Static rows: commit to consumable overrides in context.
+  function handleStaticBlur(
     partId: string,
     field: keyof ConsumablePartOverride,
     raw: string,
   ) {
     const val = parseFloat(raw);
-    if (isNaN(val) || val < 0) return;
-    setConsumableOverride(sparesMachineId, partId, field, val);
+    const committed = isNaN(val) || val < 0 ? 0 : val;
+    setConsumableOverride(sparesMachineId, partId, field, committed);
+    clearDraft(partId, field);
   }
 
-  // Custom rows: write to custom spare parts in context
-  function handleEditCustom(
+  // Custom rows: commit to custom spare parts in context.
+  function handleCustomBlur(
     id: string,
     field: keyof Omit<CustomSparePart, "id" | "machineId">,
     raw: string,
   ) {
-    const numFields: Array<keyof Omit<CustomSparePart, "id" | "machineId">> = [
-      "d",
-      "L",
-      "SS",
-      "currentStock",
-      "expectedLife",
-      "avgDailyUsage",
-    ];
-    if (numFields.includes(field)) {
-      const val = parseFloat(raw);
-      if (isNaN(val) || val < 0) return;
-      updateCustomSparePart(id, field, val);
-    } else {
-      updateCustomSparePart(id, field, raw);
-    }
+    const val = parseFloat(raw);
+    const committed = isNaN(val) || val < 0 ? 0 : val;
+    updateCustomSparePart(id, field, committed);
+    clearDraft(id, field);
   }
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
@@ -505,83 +528,59 @@ export default function ConsumablesPage() {
 
                     {/* d — editable for all rows */}
                     <td className={styles.tdNum}>
-                      {part.isCustom ? (
-                        <input
-                          className={styles.cellInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.d}
-                          onChange={(e) =>
-                            handleEditCustom(part.id, "d", e.target.value)
-                          }
-                        />
-                      ) : (
-                        <input
-                          className={styles.cellInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.d}
-                          onChange={(e) =>
-                            handleEditStatic(part.id, "d", e.target.value)
-                          }
-                        />
-                      )}
+                      <input
+                        className={styles.cellInput}
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={getDraft(part.id, "d", part.d)}
+                        onChange={(e) =>
+                          handleDraftChange(part.id, "d", e.target.value)
+                        }
+                        onBlur={(e) =>
+                          part.isCustom
+                            ? handleCustomBlur(part.id, "d", e.target.value)
+                            : handleStaticBlur(part.id, "d", e.target.value)
+                        }
+                      />
                     </td>
 
                     {/* L — editable for all rows */}
                     <td className={styles.tdNum}>
-                      {part.isCustom ? (
-                        <input
-                          className={styles.cellInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.L}
-                          onChange={(e) =>
-                            handleEditCustom(part.id, "L", e.target.value)
-                          }
-                        />
-                      ) : (
-                        <input
-                          className={styles.cellInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.L}
-                          onChange={(e) =>
-                            handleEditStatic(part.id, "L", e.target.value)
-                          }
-                        />
-                      )}
+                      <input
+                        className={styles.cellInput}
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={getDraft(part.id, "L", part.L)}
+                        onChange={(e) =>
+                          handleDraftChange(part.id, "L", e.target.value)
+                        }
+                        onBlur={(e) =>
+                          part.isCustom
+                            ? handleCustomBlur(part.id, "L", e.target.value)
+                            : handleStaticBlur(part.id, "L", e.target.value)
+                        }
+                      />
                     </td>
 
                     {/* SS — editable for all rows */}
                     <td className={styles.tdNum}>
-                      {part.isCustom ? (
-                        <input
-                          className={styles.cellInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.SS}
-                          onChange={(e) =>
-                            handleEditCustom(part.id, "SS", e.target.value)
-                          }
-                        />
-                      ) : (
-                        <input
-                          className={styles.cellInput}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.SS}
-                          onChange={(e) =>
-                            handleEditStatic(part.id, "SS", e.target.value)
-                          }
-                        />
-                      )}
+                      <input
+                        className={styles.cellInput}
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={getDraft(part.id, "SS", part.SS)}
+                        onChange={(e) =>
+                          handleDraftChange(part.id, "SS", e.target.value)
+                        }
+                        onBlur={(e) =>
+                          part.isCustom
+                            ? handleCustomBlur(part.id, "SS", e.target.value)
+                            : handleStaticBlur(part.id, "SS", e.target.value)
+                        }
+                      />
                     </td>
 
                     {/* ROP (computed, always read-only) */}
@@ -591,37 +590,37 @@ export default function ConsumablesPage() {
 
                     {/* Current Stock — editable for all rows */}
                     <td className={styles.tdStock}>
-                      {part.isCustom ? (
-                        <input
-                          className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.currentStock}
-                          onChange={(e) =>
-                            handleEditCustom(
-                              part.id,
-                              "currentStock",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      ) : (
-                        <input
-                          className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={part.currentStock}
-                          onChange={(e) =>
-                            handleEditStatic(
-                              part.id,
-                              "currentStock",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      )}
+                      <input
+                        className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={getDraft(
+                          part.id,
+                          "currentStock",
+                          part.currentStock,
+                        )}
+                        onChange={(e) =>
+                          handleDraftChange(
+                            part.id,
+                            "currentStock",
+                            e.target.value,
+                          )
+                        }
+                        onBlur={(e) =>
+                          part.isCustom
+                            ? handleCustomBlur(
+                                part.id,
+                                "currentStock",
+                                e.target.value,
+                              )
+                            : handleStaticBlur(
+                                part.id,
+                                "currentStock",
+                                e.target.value,
+                              )
+                        }
+                      />
                     </td>
 
                     <td className={styles.tdChip}>
