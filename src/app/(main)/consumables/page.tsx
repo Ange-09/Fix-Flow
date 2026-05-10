@@ -2,7 +2,11 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import styles from "./page.module.css";
-import { useAppContext, type CustomSparePart } from "@/app/context/AppContext";
+import {
+  useAppContext,
+  type CustomSparePart,
+  type ConsumablePartOverride,
+} from "@/app/context/AppContext";
 import { machines } from "@/app/lib/machineData";
 import {
   getSparePartsByMachine,
@@ -50,9 +54,6 @@ const BLANK_FORM: PartForm = {
 };
 
 // ── Consumable row shape ──────────────────────────────────────────────────────
-// A flat, self-contained row used only by this page.
-// Static rows come from sparePartsData; custom rows come from AppContext.
-// Neither source touches SparePartState (which is the critical-parts life model).
 interface ConsumableRow {
   id: string;
   itemName: string;
@@ -73,6 +74,8 @@ export default function ConsumablesPage() {
     addCustomSparePart,
     updateCustomSparePart,
     removeCustomSparePart,
+    allConsumableOverrides,
+    setConsumableOverride,
   } = useAppContext();
 
   const [search, setSearch] = useState("");
@@ -108,25 +111,29 @@ export default function ConsumablesPage() {
     machines.find((m) => m.id === selectedMachineId)?.name ?? selectedMachineId;
   const specLabel = SPEC_LABEL[sparesMachineId] ?? "Spec";
 
-  // ── Static rows — sourced entirely from sparePartsData ────────────────────
-  // These rows already carry d, L, SS, currentStock from the static data file.
-  // We do NOT merge from SparePartState; that state belongs to critical parts only.
-  const staticRows = useMemo<ConsumableRow[]>(() => {
-    return getSparePartsByMachine(sparesMachineId).map((part) => ({
-      id: part.id,
-      itemName: part.itemName,
-      partNumber: part.partNumber,
-      spec: part.spec,
-      d: part.d,
-      L: part.L,
-      SS: part.SS,
-      currentStock: part.currentStock,
-      isCustom: false,
-    }));
-  }, [sparesMachineId]);
+  // Overrides for the current machine
+  const machineOverrides = allConsumableOverrides[sparesMachineId] ?? {};
 
-  // ── Custom rows — sourced from AppContext, keyed by sparesMachineId ────────
-  // CustomSparePart carries d, L, SS, currentStock directly on the object.
+  // ── Static rows — sourced from sparePartsData, merged with overrides ──────
+  const staticRows = useMemo<ConsumableRow[]>(() => {
+    return getSparePartsByMachine(sparesMachineId).map((part) => {
+      const ov: ConsumablePartOverride = machineOverrides[part.id] ?? {};
+      return {
+        id: part.id,
+        itemName: part.itemName,
+        partNumber: part.partNumber,
+        spec: part.spec,
+        d: ov.d ?? part.d,
+        L: ov.L ?? part.L,
+        SS: ov.SS ?? part.SS,
+        currentStock: ov.currentStock ?? part.currentStock,
+        isCustom: false,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sparesMachineId, machineOverrides]);
+
+  // ── Custom rows — sourced from AppContext ─────────────────────────────────
   const customRows = useMemo<ConsumableRow[]>(() => {
     return (allCustomSpareParts[sparesMachineId] ?? []).map((p) => ({
       id: p.id,
@@ -173,9 +180,19 @@ export default function ConsumablesPage() {
   }, [allRows]);
 
   // ── Edit handlers ─────────────────────────────────────────────────────────
-  // Static rows from sparePartsData are read-only by default (no persistent
-  // state store for consumable d/L/SS). If you later add a consumable-specific
-  // state slice, wire it here. For now only custom rows are editable.
+
+  // Static rows: write to consumable overrides in context
+  function handleEditStatic(
+    partId: string,
+    field: keyof ConsumablePartOverride,
+    raw: string,
+  ) {
+    const val = parseFloat(raw);
+    if (isNaN(val) || val < 0) return;
+    setConsumableOverride(sparesMachineId, partId, field, val);
+  }
+
+  // Custom rows: write to custom spare parts in context
   function handleEditCustom(
     id: string,
     field: keyof Omit<CustomSparePart, "id" | "machineId">,
@@ -230,12 +247,11 @@ export default function ConsumablesPage() {
       itemName: form.itemName.trim(),
       partNumber: form.partNumber.trim(),
       spec: form.spec.trim(),
-      // Consumable-specific inventory fields
       d: parseFloat(form.d),
       L: parseFloat(form.L),
       SS: parseFloat(form.SS),
       currentStock: parseFloat(form.currentStock),
-      // Life model fields — not used by consumables, set to neutral defaults
+      // Life model fields — not used by consumables
       expectedLife: 0,
       installationDate: "",
       avgDailyUsage: 0,
@@ -487,7 +503,7 @@ export default function ConsumablesPage() {
 
                     <td className={styles.tdSpec}>{part.spec}</td>
 
-                    {/* d — editable only for custom rows */}
+                    {/* d — editable for all rows */}
                     <td className={styles.tdNum}>
                       {part.isCustom ? (
                         <input
@@ -501,11 +517,20 @@ export default function ConsumablesPage() {
                           }
                         />
                       ) : (
-                        <span className={styles.staticVal}>{part.d}</span>
+                        <input
+                          className={styles.cellInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.d}
+                          onChange={(e) =>
+                            handleEditStatic(part.id, "d", e.target.value)
+                          }
+                        />
                       )}
                     </td>
 
-                    {/* L — editable only for custom rows */}
+                    {/* L — editable for all rows */}
                     <td className={styles.tdNum}>
                       {part.isCustom ? (
                         <input
@@ -519,11 +544,20 @@ export default function ConsumablesPage() {
                           }
                         />
                       ) : (
-                        <span className={styles.staticVal}>{part.L}</span>
+                        <input
+                          className={styles.cellInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.L}
+                          onChange={(e) =>
+                            handleEditStatic(part.id, "L", e.target.value)
+                          }
+                        />
                       )}
                     </td>
 
-                    {/* SS — editable only for custom rows */}
+                    {/* SS — editable for all rows */}
                     <td className={styles.tdNum}>
                       {part.isCustom ? (
                         <input
@@ -537,7 +571,16 @@ export default function ConsumablesPage() {
                           }
                         />
                       ) : (
-                        <span className={styles.staticVal}>{part.SS}</span>
+                        <input
+                          className={styles.cellInput}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.SS}
+                          onChange={(e) =>
+                            handleEditStatic(part.id, "SS", e.target.value)
+                          }
+                        />
                       )}
                     </td>
 
@@ -546,7 +589,7 @@ export default function ConsumablesPage() {
                       <span className={styles.ropBadge}>{rop}</span>
                     </td>
 
-                    {/* Current Stock — editable only for custom rows */}
+                    {/* Current Stock — editable for all rows */}
                     <td className={styles.tdStock}>
                       {part.isCustom ? (
                         <input
@@ -564,11 +607,20 @@ export default function ConsumablesPage() {
                           }
                         />
                       ) : (
-                        <span
-                          className={`${styles.staticVal} ${styles[`stockInput_${status}`]}`}
-                        >
-                          {part.currentStock}
-                        </span>
+                        <input
+                          className={`${styles.cellInput} ${styles.stockInput} ${styles[`stockInput_${status}`]}`}
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={part.currentStock}
+                          onChange={(e) =>
+                            handleEditStatic(
+                              part.id,
+                              "currentStock",
+                              e.target.value,
+                            )
+                          }
+                        />
                       )}
                     </td>
 

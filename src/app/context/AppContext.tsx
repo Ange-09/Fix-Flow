@@ -161,6 +161,24 @@ export interface CustomSparePart {
 
 export type AllCustomSpareParts = Record<string, CustomSparePart[]>;
 
+// ── Consumable overrides ──────────────────────────────────────────────────────
+// Stores user edits to d, L, SS, and currentStock for static (non-custom)
+// consumable rows. Keyed by machineId → partId. Completely separate from
+// SparePartState (which is the critical-parts life model).
+
+export interface ConsumablePartOverride {
+  d?: number;
+  L?: number;
+  SS?: number;
+  currentStock?: number;
+}
+
+// machineId → partId → override fields
+export type AllConsumableOverrides = Record<
+  string,
+  Record<string, ConsumablePartOverride>
+>;
+
 // ── Custom (user-added) machines ─────────────────────────────────────────────
 
 export interface CustomMachine {
@@ -315,7 +333,7 @@ interface AppContextType {
   ahpOutputs: AHPOutputs;
   setAhpOutputs: (outputs: AHPOutputs) => void;
 
-  // Spare parts — scoped to selected machine
+  // Spare parts — scoped to selected machine (critical-parts life model only)
   sparePartsState: MachineSparePartsState;
   setSparePartState: (
     partId: string,
@@ -336,6 +354,15 @@ interface AppContextType {
     value: string | number,
   ) => void;
   removeCustomSparePart: (partId: string, machineId: string) => void;
+
+  // Consumable overrides — user edits to d/L/SS/currentStock on static rows
+  allConsumableOverrides: AllConsumableOverrides;
+  setConsumableOverride: (
+    machineId: string,
+    partId: string,
+    field: keyof ConsumablePartOverride,
+    value: number,
+  ) => void;
 
   // Raw per-machine maps (read by DashboardSection to show any machine's data)
   allKpiStates: Record<string, MachineKPIState>;
@@ -373,7 +400,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     Record<string, MachineAHPState>
   >({});
 
-  // ── Per-machine spare parts state ─────────────────────────────────────────
+  // ── Per-machine spare parts state (critical-parts life model) ─────────────
   const [allSparePartsStates, setAllSparePartsStates] = useState<
     Record<string, MachineSparePartsState>
   >({});
@@ -381,6 +408,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Custom parts keyed by machineId ──────────────────────────────────────
   const [allCustomSpareParts, setAllCustomSpareParts] =
     useState<AllCustomSpareParts>({});
+
+  // ── Consumable overrides (static-row d/L/SS/currentStock edits) ──────────
+  const [allConsumableOverrides, setAllConsumableOverrides] =
+    useState<AllConsumableOverrides>({});
 
   // ── Helpers: current machine slices (fall back to defaults) ──────────────
   const currentKPI = allKpiStates[selectedMachineId] ?? defaultMachineKPI();
@@ -562,6 +593,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // ── Consumable override setter ────────────────────────────────────────────
+
+  const setConsumableOverride = useCallback(
+    (
+      machineId: string,
+      partId: string,
+      field: keyof ConsumablePartOverride,
+      value: number,
+    ) => {
+      setAllConsumableOverrides((prev) => {
+        const machineSlice = prev[machineId] ?? {};
+        const partSlice = machineSlice[partId] ?? {};
+        return {
+          ...prev,
+          [machineId]: {
+            ...machineSlice,
+            [partId]: { ...partSlice, [field]: value },
+          },
+        };
+      });
+    },
+    [],
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -597,6 +652,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addCustomSparePart,
         updateCustomSparePart,
         removeCustomSparePart,
+
+        allConsumableOverrides,
+        setConsumableOverride,
 
         allKpiStates,
         allAhpStates,
