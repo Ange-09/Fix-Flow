@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { type ReactNode } from "react";
 import Header from "./components/Header/Header";
+import UpperSection from "./components/UpperSection/UpperSection";
 
 // Which roles can access which paths
 const ROLE_ACCESS: Record<string, UserRole[]> = {
@@ -65,6 +66,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <>
       <Header navItems={NAV_ITEMS[userRole ?? "full"]} />
+      <UpperSection />
       <main>{children}</main>
     </>
   );
