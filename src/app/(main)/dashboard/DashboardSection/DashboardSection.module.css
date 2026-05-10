@@ -89,7 +89,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 320px;
+  min-height: 340px;
 }
 
 .card:hover {
@@ -885,4 +885,71 @@
 
 .mtbfCard .statUnit {
   font-size: 0.95rem;
+}
+
+/* ── Dashboard Action Plan (inside Recommended Strategy card) ── */
+.dashActionPlan {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e8f0ea;
+}
+
+.dashActionPlanHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.dashActionPlanTag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 2px 8px;
+  width: fit-content;
+}
+
+.dashActionPlanTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0d1f11;
+  line-height: 1.3;
+}
+
+.dashActionPlanList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashActionPlanStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.dashActionPlanNum {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.dashActionPlanText {
+  font-size: 0.78rem;
+  color: #4a6b53;
+  line-height: 1.45;
 }

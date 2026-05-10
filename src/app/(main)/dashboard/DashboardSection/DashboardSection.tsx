@@ -462,35 +462,75 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
             href="/criticality"
           >
             {hasAHP ? (
-              <div
-                className={styles.strategyRecommendBanner}
-                style={{
-                  borderColor: topStrategyMeta.color,
-                  backgroundColor: topStrategyMeta.color + "12",
-                }}
-              >
-                <span className={styles.strategyRecommendIcon}>
-                  {topStrategyMeta.icon}
-                </span>
-                <div className={styles.strategyRecommendText}>
+              <>
+                <div
+                  className={styles.strategyRecommendBanner}
+                  style={{
+                    borderColor: topStrategyMeta.color,
+                    backgroundColor: topStrategyMeta.color + "12",
+                  }}
+                >
+                  <span className={styles.strategyRecommendIcon}>
+                    {topStrategyMeta.icon}
+                  </span>
+                  <div className={styles.strategyRecommendText}>
+                    <span
+                      className={styles.strategyRecommendName}
+                      style={{ color: topStrategyMeta.color }}
+                    >
+                      {topStrategyMeta.label}
+                    </span>
+                    <span className={styles.strategyRecommendDesc}>
+                      {topStrategyMeta.description}
+                    </span>
+                  </div>
                   <span
-                    className={styles.strategyRecommendName}
+                    className={styles.strategyRecommendScore}
                     style={{ color: topStrategyMeta.color }}
                   >
-                    {topStrategyMeta.label}
-                  </span>
-                  <span className={styles.strategyRecommendDesc}>
-                    {topStrategyMeta.description}
+                    {topScore.toFixed(1)}
+                    <span className={styles.strategyRecommendScoreUnit}>%</span>
                   </span>
                 </div>
-                <span
-                  className={styles.strategyRecommendScore}
-                  style={{ color: topStrategyMeta.color }}
-                >
-                  {topScore.toFixed(1)}
-                  <span className={styles.strategyRecommendScoreUnit}>%</span>
-                </span>
-              </div>
+
+                {ahpOutputs.recommendedActionPlan && (
+                  <div className={styles.dashActionPlan}>
+                    <div className={styles.dashActionPlanHeader}>
+                      <span
+                        className={styles.dashActionPlanTag}
+                        style={{
+                          color: topStrategyMeta.color,
+                          borderColor: topStrategyMeta.color + "40",
+                          backgroundColor: topStrategyMeta.color + "0f",
+                        }}
+                      >
+                        Action Plan
+                      </span>
+                      <span className={styles.dashActionPlanTitle}>
+                        {ahpOutputs.recommendedActionPlan.title}
+                      </span>
+                    </div>
+                    <ol className={styles.dashActionPlanList}>
+                      {ahpOutputs.recommendedActionPlan.steps.map((step, i) => (
+                        <li key={i} className={styles.dashActionPlanStep}>
+                          <span
+                            className={styles.dashActionPlanNum}
+                            style={{
+                              backgroundColor: topStrategyMeta.color + "18",
+                              color: topStrategyMeta.color,
+                            }}
+                          >
+                            {i + 1}
+                          </span>
+                          <span className={styles.dashActionPlanText}>
+                            {step}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </>
             ) : (
               <div className={styles.ahpEmptyState}>
                 <span className={styles.ahpEmptyIcon}>🔍</span>
@@ -499,7 +539,7 @@ export default function DashboardSection({ machineId }: DashboardSectionProps) {
                   Criticality page to see a recommendation.
                 </p>
               </div>
-            )}
+            )}{" "}
           </DashboardCard>
 
           <DashboardCard
