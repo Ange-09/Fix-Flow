@@ -27,7 +27,6 @@ const NAV_ITEMS: Record<string, { href: string; label: string }[]> = {
   manager: [{ href: "/dashboard", label: "Dashboard" }],
   operator: [
     { href: "/criticality", label: "Criticality" },
-    { href: "/pf-curve", label: "PF Curve" },
     { href: "/kpi", label: "KPI" },
     { href: "/spare-parts", label: "Spare Parts" },
     { href: "/consumables", label: "Consumables" },
@@ -35,7 +34,6 @@ const NAV_ITEMS: Record<string, { href: string; label: string }[]> = {
   full: [
     { href: "/dashboard", label: "Dashboard" },
     { href: "/criticality", label: "Criticality" },
-    { href: "/pf-curve", label: "PF Curve" },
     { href: "/kpi", label: "KPI" },
     { href: "/spare-parts", label: "Spare Parts" },
     { href: "/consumables", label: "Consumables" },
