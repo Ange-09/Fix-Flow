@@ -1,60 +1,73 @@
-import type { Metadata } from "next";
-import Script from "next/script";
-import "@/app/styles/globals.css";
-
+"use client";
+import { useAppContext, type UserRole } from "@/app/context/AppContext";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { type ReactNode } from "react";
 import Header from "./components/Header/Header";
-import UpperSection from "./components/UpperSection/UpperSection";
-import { AppProvider } from "@/app/context/AppContext";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Fix Flow",
-    template: "%s | Fix Flow",
-  },
-  description:
-    "Fix Flow is a web-based platform designed to support machine maintenance decision-making and performance monitoring. It features a centralized dashboard that integrates machine criticality assessment using the Analytic Hierarchy Process (AHP), PF Curve-based maintenance scheduling, KPI tracking (OEE, MTBF, MTTR), and spare parts management—helping optimize maintenance strategies, improve equipment reliability, and streamline operations.",
-  keywords: ["Fix Flow", "Machine Maintenance"],
-  authors: [{ name: "Ryan Santiago" }],
-  creator: "Ryan Santiago",
-  //* add when a url is made metadataBase: new URL("WEBSITEURL.COM"),
-
-  openGraph: {
-    title: "Ryan Santiago | System Design & Optimization",
-    description:
-      "Systems-focused professional specializing in ISO-based management systems, web systems, and data analytics. Designing efficient, compliant, and scalable solutions.",
-    //url:"WEBSITEURL",
-    siteName: "Ryan Santiago | System Design & Optimization",
-    images: [
-      {
-        //edit url once website is complete
-        url: "/image.png",
-        width: 1200,
-        height: 630,
-        alt: "Ryan Santiago | System Design & Optimization",
-      },
-    ],
-  },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "favicon.png",
-  },
+// Which roles can access which paths
+const ROLE_ACCESS: Record<string, UserRole[]> = {
+  "/dashboard": ["manager", "full"],
+  "/criticality": ["operator", "full"],
+  "/pf-curve": ["operator", "full"],
+  "/kpi": ["operator", "full"],
+  "/spare-parts": ["operator", "full"],
+  "/consumables": ["operator", "full"],
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+// Home page per role — used for redirect on unauthorized access
+const ROLE_HOME: Record<string, string> = {
+  manager: "/dashboard",
+  operator: "/criticality",
+  full: "/dashboard",
+};
+
+// Nav links per role
+const NAV_ITEMS: Record<string, { href: string; label: string }[]> = {
+  manager: [{ href: "/dashboard", label: "Dashboard" }],
+  operator: [
+    { href: "/criticality", label: "Criticality" },
+    { href: "/pf-curve", label: "PF Curve" },
+    { href: "/kpi", label: "KPI" },
+    { href: "/spare-parts", label: "Spare Parts" },
+    { href: "/consumables", label: "Consumables" },
+  ],
+  full: [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/criticality", label: "Criticality" },
+    { href: "/pf-curve", label: "PF Curve" },
+    { href: "/kpi", label: "KPI" },
+    { href: "/spare-parts", label: "Spare Parts" },
+    { href: "/consumables", label: "Consumables" },
+  ],
+};
+
+interface AppLayoutProps {
+  children: ReactNode;
+}
+
+export default function AppLayout({ children }: AppLayoutProps) {
+  const { userRole } = useAppContext();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!userRole) {
+      router.replace("/login");
+      return;
+    }
+    const allowed = ROLE_ACCESS[pathname];
+    if (allowed && !allowed.includes(userRole)) {
+      router.replace(ROLE_HOME[userRole]);
+    }
+  }, [userRole, pathname]);
+
+  if (!userRole) return null;
+
   return (
-    <html lang="en">
-      <body>
-        <Script /> {/* Add Web Analytics Script If Applicable*/}
-        <AppProvider>
-          <Header />
-          <UpperSection  />
-          <main>{children}</main>
-        </AppProvider>
-      </body>
-    </html>
+    <>
+      <Header navItems={NAV_ITEMS[userRole ?? "full"]} />
+      <main>{children}</main>
+    </>
   );
 }

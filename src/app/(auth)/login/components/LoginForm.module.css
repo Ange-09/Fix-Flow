@@ -294,6 +294,79 @@
   text-align: center;
 }
 
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #c9d9cc;
+}
+
+.divider span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a9e84;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.roleButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roleBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 16px;
+  background: #f7faf7;
+  border: 1.5px solid #c9d9cc;
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+  text-align: left;
+}
+
+.roleBtn:hover {
+  background: #e8f0ea;
+  border-color: #1a5c2a;
+  transform: translateY(-1px);
+}
+
+.roleBtnActive {
+  background: #d6eedd;
+  border-color: #1a5c2a;
+}
+
+.roleBtnLabel {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0d1f11;
+}
+
+.roleBtnDesc {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #4a6b53;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .card {

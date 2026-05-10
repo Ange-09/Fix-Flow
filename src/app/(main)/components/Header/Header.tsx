@@ -3,12 +3,24 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import styles from "./Header.module.css";
+import { useAppContext } from "@/app/context/AppContext";
 
-export default function Header() {
+interface NavItem {
+  href: string;
+  label: string;
+}
+
+interface HeaderProps {
+  navItems: NavItem[];
+}
+
+export default function Header({ navItems }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { setUserRole } = useAppContext();
 
   // Close menu on route change
   useEffect(() => {
@@ -23,18 +35,16 @@ export default function Header() {
     };
   }, [menuOpen]);
 
-  const navItems = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/criticality", label: "Criticality" },
-    { href: "/kpi", label: "KPI" },
-    { href: "/spare-parts", label: "Spare Parts" },
-    { href: "/consumables", label: "Consumables" },
-  ];
+  function handleLogoClick() {
+    setUserRole(null);
+    router.push("/login");
+  }
 
   return (
     <>
       <header className={styles.header}>
-        <div className={styles.brand}>
+        {/* Brand — clicks go to /login and clear role */}
+        <button className={styles.brand} onClick={handleLogoClick}>
           <div className={styles.logo}>
             <Image
               src="/images/logo.png"
@@ -44,9 +54,8 @@ export default function Header() {
               priority
             />
           </div>
-
           <span className={styles.brandName}>Fix Flow</span>
-        </div>
+        </button>
 
         {/* Desktop nav */}
         <nav className={styles.nav}>

@@ -4,25 +4,56 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import styles from "./LoginForm.module.css";
+import { useAppContext, type UserRole } from "@/app/context/AppContext";
+
+const ROLE_CONFIG: {
+  role: UserRole;
+  label: string;
+}[] = [
+  {
+    role: "manager",
+    label: "Manager",
+  },
+  {
+    role: "operator",
+    label: "Operator",
+  },
+  {
+    role: "full",
+    label: "Full",
+  },
+];
+
+const ROLE_HOME: Record<string, string> = {
+  manager: "/dashboard",
+  operator: "/criticality",
+  full: "/dashboard",
+};
 
 export default function LoginForm() {
   const router = useRouter();
+  const { setUserRole } = useAppContext();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>(null);
 
-  const handleLogin = () => {
+  function handleRoleLogin(role: UserRole) {
     if (!username.trim() || !password.trim()) {
-      setError("Please enter both a username and password.");
+      setError("Please enter a username and password.");
       return;
     }
+    if (!role) return;
 
-    router.push("/dashboard");
-  };
+    setSelectedRole(role);
+    setError("");
+    setUserRole(role);
+    router.push(ROLE_HOME[role]);
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleLogin();
+    if (e.key === "Enter" && selectedRole) handleRoleLogin(selectedRole);
   };
 
   return (
@@ -53,7 +84,6 @@ export default function LoginForm() {
             <label className={styles.label} htmlFor="username">
               Username
             </label>
-
             <div className={styles.inputWrapper}>
               <span className={styles.inputIcon}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -72,14 +102,16 @@ export default function LoginForm() {
                   />
                 </svg>
               </span>
-
               <input
                 id="username"
                 type="text"
                 className={styles.input}
                 placeholder="Enter your username"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setError("");
+                }}
                 onKeyDown={handleKeyDown}
               />
             </div>
@@ -89,7 +121,6 @@ export default function LoginForm() {
             <label className={styles.label} htmlFor="password">
               Password
             </label>
-
             <div className={styles.inputWrapper}>
               <span className={styles.inputIcon}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -110,14 +141,16 @@ export default function LoginForm() {
                   />
                 </svg>
               </span>
-
               <input
                 id="password"
                 type="password"
                 className={styles.input}
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
                 onKeyDown={handleKeyDown}
               />
             </div>
@@ -126,14 +159,27 @@ export default function LoginForm() {
 
         {error && <div className={styles.errorBox}>{error}</div>}
 
-        <button
-          type="button"
-          className={styles.loginBtn}
-          onClick={handleLogin}
-          disabled={loading}
-        >
-          {loading ? <span className={styles.spinner} /> : "Sign In"}
-        </button>
+        {/* Divider */}
+        <div className={styles.divider}>
+          <span>Sign in as</span>
+        </div>
+
+        {/* Role buttons */}
+        <div className={styles.roleButtons}>
+          {ROLE_CONFIG.map(({ role, label }) => (
+            <button
+              key={role}
+              type="button"
+              className={`${styles.roleBtn} ${
+                selectedRole === role ? styles.roleBtnActive : ""
+              }`}
+              onClick={() => handleRoleLogin(role)}
+            >
+              <span className={styles.roleBtnLabel}>{label}</span>
+              <span className={styles.roleBtnDesc}></span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <p className={styles.footer}>

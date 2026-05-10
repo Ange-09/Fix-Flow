@@ -9,6 +9,9 @@ import {
 } from "react";
 import { DEFAULT_MACHINE_ID } from "@/app/lib/machineData";
 
+// ── User Roles ─────────────────────────────────────────────────────────
+export type UserRole = "manager" | "operator" | "full" | null;
+
 // ── KPI input shapes ─────────────────────────────────────────────────────────
 
 export interface OEEInputs {
@@ -304,6 +307,10 @@ function defaultMachineAHP(): MachineAHPState {
 // ── Context shape ────────────────────────────────────────────────────────────
 
 interface AppContextType {
+  // User Roles
+  userRole: UserRole;
+  setUserRole: (role: UserRole) => void;
+
   // Machine selection
   selectedMachineId: string;
   setSelectedMachineId: (id: string) => void;
@@ -375,6 +382,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [userRole, setUserRole] = useState<UserRole>(null);
+
   const [selectedMachineId, setSelectedMachineId] =
     useState(DEFAULT_MACHINE_ID);
 
@@ -620,6 +629,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        userRole,
+        setUserRole,
+
         selectedMachineId,
         setSelectedMachineId,
 
