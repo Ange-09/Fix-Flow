@@ -67,8 +67,6 @@ function AddPartModal({ machineId, onClose }: AddPartModalProps) {
     const numFields: (keyof typeof EMPTY_FORM)[] = [
       "expectedLife",
       "avgDailyUsage",
-      "SS",
-      "currentStock",
     ];
     numFields.forEach((k) => {
       const v = parseFloat(form[k]);
@@ -223,45 +221,6 @@ function AddPartModal({ machineId, onClose }: AddPartModalProps) {
                   className={styles.input}
                   {...field("installationDate")}
                 />
-              </div>
-            </div>
-          </div>
-
-          {/* Inventory */}
-          <div className={styles.fieldSection}>
-            <p className={styles.fieldSectionTitle}>Inventory Parameters</p>
-            <div className={styles.fieldRow2}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label} htmlFor={`${uid}-SS`}>
-                  Safety Stock <em className={styles.unit}>(units)</em>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className={`${styles.input} ${errors.SS ? styles.inputError : ""}`}
-                  placeholder="0"
-                  {...field("SS")}
-                />
-                {errors.SS && (
-                  <span className={styles.errorMsg}>{errors.SS}</span>
-                )}
-              </div>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label} htmlFor={`${uid}-currentStock`}>
-                  Current Stock <em className={styles.unit}>(units)</em>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className={`${styles.input} ${errors.currentStock ? styles.inputError : ""}`}
-                  placeholder="0"
-                  {...field("currentStock")}
-                />
-                {errors.currentStock && (
-                  <span className={styles.errorMsg}>{errors.currentStock}</span>
-                )}
               </div>
             </div>
           </div>
