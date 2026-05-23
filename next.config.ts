@@ -1,8 +1,25 @@
 import type { NextConfig } from "next";
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   images: {
-    unoptimized: true, // optional
+    unoptimized: true,
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors *",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "",
+          },
+        ],
+      },
+    ];
   },
 };
 
